@@ -1,38 +1,42 @@
-# MaxPre MaxSAT preprocessor
+# MaxPre2 MaxSAT preprocessor
 
 
 ## Basic use and flags
 
 The first argument is the instance file, the second is preprocess, reconstruct or solve.
 
-An example of using the preprocessor:
-	./preprocessor test.wcnf preprocess -techniques=[bu]#[buvsrg] -mapfile=test.map > preprocessed.wcnf
-	./solver < preprocessed.wcnf > sol0.sol
-	./preprocessor sol0.sol reconstruct -mapfile=test.map > solution.sol
+An example of using the preprocessor:  
+	./preprocessor test.wcnf preprocess -techniques=[bu]#[buvsrg] -mapfile=test.map > preprocessed.wcnf  
+	./solver < preprocessed.wcnf > sol0.sol  
+	./preprocessor sol0.sol reconstruct -mapfile=test.map > solution.sol  
 
-Another way to do the same thing:
-	./preprocessor test.wcnf solve -solver=./solver -techniques=[bu]#[buvsrg] > solution.sol
+Another way to do the same thing:  
+	./preprocessor test.wcnf solve -solver=./solver -techniques=[bu]#[buvsrg] > solution.sol  
 
--techniques (default: [bu]#[buvsrgc])
-	string:
-	This string defines the preprocessing techniques to use and the order of them.
-	Each letter corresponds to a preprocessing technique. Each preprocessing technique is applied until its fixpoint.
-	Techniques inside brackets are applied until all of them are in fixpoint. The brackets work recursively. 
-	If # character is given, all techniques before it are applied before group detection and adding labels (techniques available before labeling are BCE, UP and SE).
-	Techniques:
-	b = blocked clause elimination
-	u = unit propagation
-	v = bounded variable elimination
-	s = subsumption elimination
-	r = self subsuming resolution
-	l = subsumed label elimination
-	c = binary core removal
-	a = bounded variable addition
-	g = Group subsumed label elimination
-	e = equivalence elimination
-	h = unhiding techniques (failed literals, hidden tautology elimination, hidden literal elimination)
-	t = structure labeling
-	p = failed label probing
+-techniques (default: [bu]#[buvsrgc])  
+	string:  
+	This string defines the preprocessing techniques to use and the order of them.  
+	Each letter corresponds to a preprocessing technique. Each preprocessing technique is applied until its fixpoint.  
+	Techniques inside brackets are applied until all of them are in fixpoint. The brackets work recursively.  
+	If # character is given, all techniques before it are applied before group detection and adding labels (techniques available before labeling are BCE, UP and SE).  
+	Techniques:  
+	b = blocked clause elimination  
+	u = unit propagation  
+	v = bounded variable elimination  
+	s = subsumption elimination  
+	r = self subsuming resolution  
+	l = subsumed label elimination  
+	c = binary core removal  
+	a = bounded variable addition  
+	g = Group subsumed label elimination  
+	e = equivalence elimination  
+	h = unhiding techniques (on binary implication graph, failed literals, hidden tautology elimination, hidden literal elimination)  
+	t = structure labeling  
+	G = intrinsic atmost1 constraints  
+	T = TrimMaxSat  
+	V = TrimMaxSat -algorithm on all variables to detect backbones  
+	H = hardening  
+	R = failed literal elimination  
 
 -solver (default: disabled)
 	string:
