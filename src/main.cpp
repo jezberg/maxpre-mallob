@@ -430,6 +430,7 @@ void printHelp(ostream& out, map<string, int>& intVars, map<string, bool>& boolV
 	out<<"\tt = structure labeling"<<endl;
 	out<<"\tG = intrinsic atmost1 constraints"<<endl;
 	out<<"\tT = TrimMaxSat"<<endl;
+	out<<"\tV = TrimMaxsat based backbone detection"<<endl;
 	out<<"\tH = hardening"<<endl;
 	out<<"\tR = failed literal elimination + unhiding (extended with redundancy detection)"<<endl;
 	if (!shrt) out<<endl;
