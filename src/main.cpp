@@ -4,6 +4,7 @@
 #include <cassert>
 #include <sstream>
 #include <map>
+#include <iomanip>
 
 #include "preprocessorinterface.hpp"
 #include "inputreader.hpp"
@@ -200,7 +201,7 @@ int parseSkipTechnique(map<string, string>& flags) {
 		ss>>skipTechnique;
 		cout<<"c Skiptechnique "<<skipTechnique<<endl;
 		cerr<<"Skiptechnique "<<skipTechnique<<endl;
-		
+
 		if (skipTechnique <= 0 || skipTechnique > 1000000000) {
 			cout<<"Invalid skiptechnique flag"<<endl;
 			cerr<<"Invalid skiptechinque flag"<<endl;
@@ -248,7 +249,7 @@ int parseBVElocalGrow(map<string, string>& flags) {
     ss>>BVElocalGrow;
     cout<<"c BVElocalgrow "<<BVElocalGrow<<endl;
     cerr<<"BVElocalgrow "<<BVElocalGrow<<endl;
-    
+
     if (BVElocalGrow <= 0 || BVElocalGrow > 1000000000) {
       cout<<"Invalid bvelocalgrow flag"<<endl;
       cerr<<"Invalid bvelocalgrow flag"<<endl;
@@ -270,7 +271,7 @@ int parseBVEglobalGrow(map<string, string>& flags) {
     ss>>BVEglobalGrow;
     cout<<"c BVEglobalgrow "<<BVEglobalGrow<<endl;
     cerr<<"BVEglobalgrow "<<BVEglobalGrow<<endl;
-    
+
     if (BVEglobalGrow <= 0 || BVEglobalGrow > 1000000000) {
       cout<<"Invalid bveglobalgrow flag"<<endl;
       cerr<<"Invalid bveglobalgrow flag"<<endl;
@@ -305,7 +306,7 @@ void parseBoolVars(map<string, string>& flags, map<string, bool>& boolVars) {
 			cout << "c " << key << " " << boolVars[key] << endl;
 			cerr << key << " " << boolVars[key] << endl;
 		}
-	}	
+	}
 }
 void parseDoubleVars(map<string, string>& flags, map<string, double>& doubleVars) {
 	for (auto& v : doubleVars) {
@@ -389,27 +390,32 @@ int parseVerb(map<string, string>& flags) {
 	return verb;
 }
 
-void printHelp(ostream& out, map<string, int>& intVars, map<string, bool>& boolVars, map<string, double>& doubleVars, map<string, uint64_t> uint64Vars) {
-	out<<endl;
+void printHelp(ostream& out, map<string, int>& intVars, map<string, bool>& boolVars, map<string, double>& doubleVars, map<string, uint64_t> uint64Vars, bool shrt) {
 	out<<"The first argument is the instance file, the second is preprocess, reconstruct or solve."<<endl;
 	out<<endl;
-	
+
 	out<<"An example of using the preprocessor:"<<endl;
 	out<<"\t./preprocessor test.wcnf preprocess -techniques=[bu]#[buvsrg] -mapfile=test.map > preprocessed.wcnf"<<endl;
 	out<<"\t./solver < preprocessed.wcnf > sol0.sol"<<endl;
 	out<<"\t./preprocessor sol0.sol reconstruct -mapfile=test.map > solution.sol"<<endl;
 	out<<endl;
-	out<<"Another way to do the same thing:"<<endl;
-	out<<"\t./preprocessor test.wcnf solve -solver=./solver -techniques=[bu]#[buvsrg] > solution.sol"<<endl;
+	if (!shrt) {
+		out<<"Another way to do the same thing:"<<endl;
+		out<<"\t./preprocessor test.wcnf solve -solver=./solver -techniques=[bu]#[buvsrg] > solution.sol"<<endl;
+		out<<endl;
+	}
+	out<<"Parameters:"<<endl;
 	out<<endl;
-	
+
 	out<<"-techniques (default: [bu]#[buvsrgc])"<<endl;
-	out<<"\tstring:"<<endl;
-	out<<"\tThis string defines the preprocessing techniques to use and the order of them."<<endl;
-	out<<"\tEach letter corresponds to a preprocessing technique. Each preprocessing technique is applied until its fixpoint."<<endl;
-	out<<"\tTechniques inside brackets are applied until all of them are in fixpoint. The brackets work recursively. "<<endl;
-	out<<"\tIf # character is given, all techniques before it are applied before group detection and adding labels (techniques available before labeling are BCE, UP and SE)."<<endl;
-	out<<"\tTechniques:"<<endl;
+	if (!shrt) {
+		out<<"\tstring:"<<endl;
+		out<<"\tThis string defines the preprocessing techniques to use and the order of them."<<endl;
+		out<<"\tEach letter corresponds to a preprocessing technique. Each preprocessing technique is applied until its fixpoint."<<endl;
+		out<<"\tTechniques inside brackets are applied until all of them are in fixpoint. The brackets work recursively. "<<endl;
+		out<<"\tIf # character is given, all techniques before it are applied before group detection and adding labels (techniques available before labeling are BCE, UP and SE)."<<endl;
+		out<<"\tTechniques:"<<endl;
+	}
 	out<<"\tb = blocked clause elimintation"<<endl;
 	out<<"\tu = unit propagation"<<endl;
 	out<<"\tv = bounded variable elimination"<<endl;
@@ -420,107 +426,126 @@ void printHelp(ostream& out, map<string, int>& intVars, map<string, bool>& boolV
 	out<<"\ta = bounded variable addition"<<endl;
 	out<<"\tg = generalized subsumed label elimination"<<endl;
 	out<<"\te = equivalence elimination"<<endl;
-	out<<"\th = unhiding techniques (failed literals, hidden tautology elimination, hidden literal elimination)"<<endl;
+	out<<"\th = unhiding techniques on binary implication graph (failed literals, hidden tautology elimination, hidden literal elimination)"<<endl;
 	out<<"\tt = structure labeling"<<endl;
-	out<<"\tp = failed label probing"<<endl;
-	out<<endl;
-	
+	out<<"\tG = intrinsic atmost1 constraints"<<endl;
+	out<<"\tT = TrimMaxSat"<<endl;
+	out<<"\tH = hardening"<<endl;
+	out<<"\tR = failed literal elimination + unhiding (extended with redundancy detection)"<<endl;
+	if (!shrt) out<<endl;
+
 	out<<"-solver (default: disabled)"<<endl;
-	out<<"\tstring:"<<endl;
-	out<<"\tThe solver to use to solve the preprocessed instance"<<endl;
-	out<<endl;
-	
+	if (!shrt) {
+		out<<"\tstring:"<<endl;
+		out<<"\tThe solver to use to solve the preprocessed instance"<<endl;
+		out<<endl;
+	}
 	out<<"-solverflags (default: disabled)"<<endl;
-	out<<"\tstring:"<<endl;
-	out<<"\tThe flags to use with the solver"<<endl;
-	out<<"\tFor example -solver=./LMHS -solverflags=\"--infile-assumps --no-preprocess\" results in using the command ./LMHS preprocessed.wcnf --infile-assumps --no-preprocess > sol0.sol"<<endl;
-	out<<endl;
-	
+	if (!shrt) {
+		out<<"\tstring:"<<endl;
+		out<<"\tThe flags to use with the solver"<<endl;
+		out<<"\tFor example -solver=./LMHS -solverflags=\"--infile-assumps --no-preprocess\" results in using the command ./LMHS preprocessed.wcnf --infile-assumps --no-preprocess > sol0.sol"<<endl;
+		out<<endl;
+	}
 	out<<"-mapfile (default: disabled)"<<endl;
-	out<<"\tstring:"<<endl;
-	out<<"\tThe file to write the solution reconstruction map"<<endl;
-	out<<endl;
-	
+	if (!shrt) {
+		out<<"\tstring:"<<endl;
+		out<<"\tThe file to write the solution reconstruction map"<<endl;
+		out<<endl;
+	}
 	out<<"-problemtype (default: maxsat)"<<endl;
-	out<<"\tstring: {maxsat, sat}"<<endl;
-	out<<"\tShould the problem be preprocessed as a MaxSAT or SAT instance"<<endl;
-	out<<endl;
-	
-	out<<"-outputformat (default: wpms)"<<endl;
-	out<<"\tstring: {original}"<<endl;
-	out<<"\tBy default the preprocessor always gives the output in weighted partial MaxSAT format"<<endl;
-	out<<"\tOutput in SAT format by setting this to original when preprocessing SAT instances"<<endl;
-	out<<endl;
-	
+	if (!shrt) {
+		out<<"\tstring: {maxsat, sat}"<<endl;
+		out<<"\tShould the problem be preprocessed as a MaxSAT or SAT instance"<<endl;
+		out<<endl;
+	}
+	out<<"-outputformat (default: wpms22)"<<endl;
+	if (!shrt) {
+		out<<"\tstring: {original, wpms, wpms22, sat}"<<endl;
+		out<<"\tBy default the preprocessor always gives the output in weighted partial MaxSAT format"<<endl;
+		out<<"\tOutput in SAT format by setting this to original when preprocessing SAT instances"<<endl;
+		out<<endl;
+	}
 	out<<"-timelimit (default: inf)"<<endl;
-	out<<"\tdouble: [0, 500000000]"<<endl;
-	out<<"\tLimit for preprocessing time in seconds"<<endl;
-	out<<endl;
-	
+	if (!shrt) {
+		out<<"\tdouble: [0, 500000000]"<<endl;
+		out<<"\tLimit for preprocessing time in seconds"<<endl;
+		out<<endl;
+	}
 	out<<"-skiptechnique (default: disabled)"<<endl;
-	out<<"\tint: [1, 1000000000]"<<endl;
-	out<<"\tSkip a preprocessing technique if it seems to be not effective in x tries (x is given in this flag)"<<endl;
-	out<<"\tRecommended values for this could be something between 10 and 1000"<<endl;
-	out<<endl;
-	
+	if (!shrt) {
+		out<<"\tint: [1, 1000000000]"<<endl;
+		out<<"\tSkip a preprocessing technique if it seems to be not effective in x tries (x is given in this flag)"<<endl;
+		out<<"\tRecommended values for this could be something between 10 and 1000"<<endl;
+		out<<endl;
+	}
 	out<<"-matchlabels (default: 0)"<<endl;
-	out<<"\tbool: {0, 1}"<<endl;
-	out<<"\tUse label matching technique to reduce the number of labels"<<endl;
-	out<<endl;
-	
+	if (!shrt) {
+		out<<"\tbool: {0, 1}"<<endl;
+		out<<"\tUse label matching technique to reduce the number of labels"<<endl;
+		out<<endl;
+	}
 	out<<"-bvegate (default: 0)"<<endl;
-	out<<"\tbool: {0, 1}"<<endl;
-	out<<"\tUse BVE gate extraction to extend BVE"<<endl;
-	out<<"\tNote: applying BCE will destroy all recognizable gate structures"<<endl;
-	out<<endl;
-	
+	if (!shrt) {
+		out<<"\tbool: {0, 1}"<<endl;
+		out<<"\tUse BVE gate extraction to extend BVE"<<endl;
+		out<<"\tNote: applying BCE will destroy all recognizable gate structures"<<endl;
+		out<<endl;
+	}
 	out<<"-sizelimit (default: 0-inf)"<<endl;
-	out<<"\tstring: int-int, range for ints [0, 2^32-1], constant inf=2^32-1"<<endl;
-	out<<"\tUse preprocessing only if the number of clauses in the instance is on the given range"<<endl;
-	out<<"\tFor example -sizelimit=1000000-inf skips preprocessing when there are less than a million clauses on the instance"<<endl;
-	out<<endl;
-	
-	out<<"-ignore-exit-code"<<endl;
-	out<<"\tBy default if MaxSAT solver exits with a nonzero exit code, maxpre will halt and any solution of the solver is ignored."<<endl;
-	out<<"\tUse flag -ignore-exit-code to ignore the exit value of the MaxSAT solver and try to parse and analyze the result anyways."<<endl;
-	out<<endl;
-	
+	if (!shrt) {
+		out<<"\tstring: int-int, range for ints [0, 2^32-1], constant inf=2^32-1"<<endl;
+		out<<"\tUse preprocessing only if the number of clauses in the instance is on the given range"<<endl;
+		out<<"\tFor example -sizelimit=1000000-inf skips preprocessing when there are less than a million clauses on the instance"<<endl;
+		out<<endl;
+	}
+	out<<"-ignore-exit-code (default: not set)"<<endl;
+	if (!shrt) {
+		out<<"\tBy default if MaxSAT solver exits with a nonzero exit code, maxpre will halt and any solution of the solver is ignored."<<endl;
+		out<<"\tUse flag -ignore-exit-code to ignore the exit value of the MaxSAT solver and try to parse and analyze the result anyways."<<endl;
+		out<<endl;
+	}
 	out<<"-prepfile (default: preprocessed.wcnf)"<<endl;
-	out<<"\tstring"<<endl;
-	out<<"\tSet the auxiliary file into which the preprocessed instance is saved when type solve is used."<<endl;
-	out<<endl;
-	
+	if (!shrt) {
+		out<<"\tstring"<<endl;
+		out<<"\tSet the auxiliary file into which the preprocessed instance is saved when type solve is used."<<endl;
+		out<<endl;
+	}
 	out<<"-solfile (default: sol0.sol)"<<endl;
-	out<<"\tstring"<<endl;
-	out<<"\tSet the auxiliary file into which the output of the MaxSAT solver is piped when type solve is used."<<endl;
-	out<<endl;
-	
+	if (!shrt) {
+		out<<"\tstring"<<endl;
+		out<<"\tSet the auxiliary file into which the output of the MaxSAT solver is piped when type solve is used."<<endl;
+		out<<endl;
+	}
+
 	if (intVars.size()) {
-		out<<"Following integer values"<<endl;
-		for (auto& s : intVars) out<<"\t-"<<s.first<<" (default: "<<s.second<<")"<<endl;
-		out << endl;
+		if (!shrt) out<<"Following integer values"<<endl;
+		for (auto& s : intVars) out<<(shrt?"":"\t")<<"-"<<s.first<<" (default: "<<s.second<<")"<<endl;
+		if (!shrt) out << endl;
 	}
 	if (boolVars.size()) {
-		out<<"Following boolean values"<<endl;
-		for (auto& s : boolVars) out<<"\t-"<<s.first<<" (default: "<<s.second<<")"<<endl;
-		out << endl;
+		if (!shrt) out<<"Following boolean values"<<endl;
+		for (auto& s : boolVars) out<<(shrt?"":"\t")<<"-"<<s.first<<" (default: "<<(s.second?"true":"false")<<")"<<endl;
+		if (!shrt) out << endl;
 	}
 	if (doubleVars.size()) {
-		out<<"Following double values"<<endl;
-		for (auto& s : boolVars) out<<"\t-"<<s.first<<" (default: "<<s.second<<")"<<endl;
-		out << endl;
+		if (!shrt) out<<"Following double values"<<endl;
+		out << std::fixed << setprecision(1);
+		for (auto& s : doubleVars) out<<(shrt?"":"\t")<<"-"<<s.first<<" (default: "<<s.second<<")"<<endl;
+		if (!shrt) out << endl;
 	}
 	if (uint64Vars.size()) {
-		out<<"Following uint64 values"<<endl;
-		for (auto& s : uint64Vars) out<<"\t-"<<s.first<<" (default: "<<s.second<<")"<<endl;
-		out << endl;
+		if (!shrt) out<<"Following uint64 values"<<endl;
+		for (auto& s : uint64Vars) out<<(shrt?"":"\t")<<"-"<<s.first<<" (default: "<<s.second<<")"<<endl;
+		if (!shrt) out << endl;
 	}
-	
 	out<<endl;
-	
+
 	out<<"-verb (default: 1)"<<endl;
-	out<<"\tint: [0, 1, 2]"<<endl;
-	out<<"\tIf verb is 0 the preprocessor will output less stuff to the standard error."<<endl;
+	if (!shrt) {
+		out<<"\tint: [0, 1, 2]"<<endl;
+		out<<"\tIf verb is 0 the preprocessor will output less stuff to the standard error."<<endl;
+	}
 	out<<endl;
 }
 
@@ -531,12 +556,12 @@ int isHelp(char* arg) {
 int main(int argc, char* argv[]){
 	ios_base::sync_with_stdio(0);
 	cin.tie(0);
-	
+
 	map<string, int> intVars;
 	map<string, bool> boolVars;
 	map<string, double> doubleVars;
 	map<string, uint64_t> uint64Vars;
-	
+
 	intVars["BBTMS_maxVars"]=200;
 	boolVars["hardenInModelSearch"]=false;
 	intVars["modelSearchAsearchType"]=1;
@@ -546,23 +571,23 @@ int main(int argc, char* argv[]){
 	boolVars["MRED_trimBefore"]=false;
 	intVars["MRED_randomizedTries"]=0;
 	intVars["LRED_minPartitions"]=1;
-	
-	
+
+
 	if ((argc > 1 && isHelp(argv[1])) || (argc > 2 && isHelp(argv[2])) || (argc > 3 && isHelp(argv[3]))) {
-		printHelp(cout, intVars, boolVars, doubleVars, uint64Vars);
+		printHelp(cout, intVars, boolVars, doubleVars, uint64Vars, false);
 		return 0;
 	}
 	if (argc < 3) {
-		cout<<"Use -help"<<endl;
-		cout<<"Use -help"<<endl;
+		printHelp(cout, intVars, boolVars, doubleVars, uint64Vars, true);
+		cout<<"Use -help for more detailed information"<<endl;
 		return 0;
 	}
 	auto flags = getFlags(argc, argv);
-	
+
 	if (flags.count("h") || flags.count("help")) {
-		printHelp(cout, intVars, boolVars, doubleVars, uint64Vars);
+		printHelp(cout, intVars, boolVars, doubleVars, uint64Vars, true);
 	}
-	
+
 	string type(argv[2]);
 	assert(type == "solve" || type == "preprocess" || type == "reconstruct");
 	string file(argv[1]);
@@ -616,7 +641,7 @@ int main(int argc, char* argv[]){
 		}
 		return 0;
 	}
-	
+
 	if (type == "solve") {
 		// just check that -solver flag is used
 		if (!(flags.count("solver") && flags["solver"].size() > 0)) {
@@ -625,7 +650,7 @@ int main(int argc, char* argv[]){
 			return 0;
 		}
 	}
-	
+
 	string techniques = parseTechniques(flags);
 	double timeLimit = parseTimeLimit(flags);
 	bool BVEgate = parseBVEgate(flags);
@@ -635,19 +660,19 @@ int main(int argc, char* argv[]){
 	bool BVEsortMaxFirst = parseBVEsortMaxFirst(flags);
 	int BVElocalGrow = parseBVElocalGrow(flags);
 	int BVEglobalGrow = parseBVEglobalGrow(flags);
-	
-	
-	
+
+
+
 	pair<unsigned, unsigned> sizeLimit = parseSizeLimit(flags);
 	bool ignoreExitCode = flags.count("ignore-exit-code");
 	string prepFile = parsePrepFilename(flags);
 	string solFile = parseSolFilename(flags);
-	
+
 	parseIntVars(flags, intVars);
 	parseBoolVars(flags, boolVars);
 	parseDoubleVars(flags, doubleVars);
 	parseUint64Vars(flags, uint64Vars);
-	
+
 	ifstream instanceFile(file);
 	if (instanceFile.fail()) {
 		cout<<"Failed to read the input file"<<endl;
@@ -657,26 +682,36 @@ int main(int argc, char* argv[]){
 	maxPreprocessor::InputReader inputReader;
 	int readStatus = inputReader.readClauses(instanceFile, maxSat);
 	instanceFile.close();
-	
+
 	if (readStatus > 0) {
 		cout<<"Failed to parse input instance: "<<inputReader.readError<<endl;
 		cerr<<"Failed to parse input instance: "<<inputReader.readError<<endl;
 		return 0;
 	}
-	
-	int outputFormat = maxPreprocessor::INPUT_FORMAT_WPMS;
-	if (flags["outputformat"] == "original") {
-		outputFormat = inputReader.inputFormat;
+
+	int outputFormat = maxPreprocessor::INPUT_FORMAT_WPMS22;
+	if (flags.count("outputformat")) {
+		if (flags["outputformat"] == "original")	outputFormat = inputReader.inputFormat;
+		else if (flags["outputformat"] == "wpms")	outputFormat = maxPreprocessor::INPUT_FORMAT_WPMS;
+		else if (flags["outputformat"] == "wpms22")	outputFormat = maxPreprocessor::INPUT_FORMAT_WPMS22;
+		else if (flags["outputformat"] == "sat")	outputFormat = maxPreprocessor::	INPUT_FORMAT_SAT;
+		else {
+			cout << "c invalid outputformat value " << flags["outputformat"] << endl;
+			cerr << "Invalid outputformat value " << flags["outputformat"] << endl;
+		}
 		if (outputFormat == maxPreprocessor::INPUT_FORMAT_MS) {
 			// preprocessor works in labeled cnf so it cannot output pure maxsat
 			outputFormat = maxPreprocessor::INPUT_FORMAT_WPMS;
 		}
 		string outf;
 		if (outputFormat == maxPreprocessor::INPUT_FORMAT_WPMS) {
-			outf = "weighted partial Max-SAT";
+			outf = "weighted partial Max-SAT (pre 2022)";
 		}
 		else if (outputFormat == maxPreprocessor::INPUT_FORMAT_SAT) {
 			outf = "SAT";
+		}
+		else if (outputFormat == maxPreprocessor::INPUT_FORMAT_WPMS22) {
+			outf = "weighted partial Max-SAT (2022 ->)";
 		}
 		else {
 			return 0;
@@ -684,9 +719,9 @@ int main(int argc, char* argv[]){
 		cout<<"c Outputformat "<<outf<<endl;
 		cerr<<"Outputformat "<<outf<<endl;
 	}
-	
+
 	int verb = parseVerb(flags);
-	
+
 	maxPreprocessor::PreprocessorInterface pif(inputReader.clauses, inputReader.weights, inputReader.top);
 	pif.setBVEGateExtraction(BVEgate);
 	pif.setLabelMatching(labelMatching);
@@ -701,14 +736,14 @@ int main(int argc, char* argv[]){
 
 	maxPreprocessor::Timer preprocessTimer;
 	preprocessTimer.start();
-	
+
 	// TODO: better size limiting...
 	if (inputReader.clauses.size() < sizeLimit.first || sizeLimit.second < inputReader.clauses.size()) timeLimit=0;
 	pif.preprocess(techniques, verb, timeLimit);
-	
+
 	preprocessTimer.stop();
 	pif.printPreprocessorStats(cerr);
-	
+
 	cerr<<"Preprocess time: "<<preprocessTimer.getTime().count()<<endl;
 	if (verb > 0) pif.printTimeLog(cerr);
 	if (type == "preprocess") {
@@ -717,7 +752,7 @@ int main(int argc, char* argv[]){
 		pif.printTimeLog(cout);
 		pif.printInfoLog(cout);
 		pif.printInstance(cout, outputFormat);
-		
+
 		if (flags.count("mapfile")) {
 			string mapFile = flags["mapfile"];
 			cout<<"c Outputting reconstruction map to "<<mapFile<<endl;
@@ -745,17 +780,17 @@ int main(int argc, char* argv[]){
 			cerr<<"Please specify the solver"<<endl;
 			return 0;
 		}
-		
+
 		cout << "c Saving preprocessed instance into file " << prepFile << endl;
 		cerr << "Saving preprocessed instance into file " << prepFile << endl;
 		ofstream out(prepFile);
 		pif.printInstance(out, outputFormat);
 		out.close();
-		
-		string command = (solver + " " + prepFile +" " + flags["solverflags"] + " > " + solFile);		
+
+		string command = (solver + " " + prepFile +" " + flags["solverflags"] + " > " + solFile);
 		cout << "c Invoking solver... command: "  << command << endl;
 		cerr << "Invoking solver... command: " << command << endl;
-		
+
 		maxPreprocessor::Timer solveTimer;
 		solveTimer.start();
 		int rv = system(command.c_str());
@@ -766,7 +801,7 @@ int main(int argc, char* argv[]){
 			return 0;
 		}
 		solveTimer.stop();
-		
+
 		maxPreprocessor::OutputReader opr;
 		ifstream in(solFile);
 		readStatus = opr.readSolution(in);
@@ -776,7 +811,7 @@ int main(int argc, char* argv[]){
 			cerr<<"Failed to parse solution"<<endl;
 			return 0;
 		}
-		
+
 		if (opr.status == 2) {
 			cout<<"s UNSATISFIABLE"<<endl;
 		}

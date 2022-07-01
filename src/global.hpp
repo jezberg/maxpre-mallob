@@ -13,6 +13,7 @@ const int VAR_FALSE = 2;
 const int INPUT_FORMAT_WPMS = 1;
 const int INPUT_FORMAT_MS = 2;
 const int INPUT_FORMAT_SAT = 3;
+const int INPUT_FORMAT_WPMS22 = 4;
 
 inline int litValue(int x) {
 	return !(x&1);

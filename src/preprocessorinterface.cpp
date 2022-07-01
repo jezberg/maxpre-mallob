@@ -14,7 +14,7 @@
 
 using namespace std;
 namespace maxPreprocessor {
-	PreprocessorInterface::PreprocessorInterface(const vector<vector<int> >& clauses, const vector<uint64_t>& weights, uint64_t topWeight_, bool inProcessMode_) 
+	PreprocessorInterface::PreprocessorInterface(const vector<vector<int> >& clauses, const vector<uint64_t>& weights, uint64_t topWeight_, bool inProcessMode_)
 	: preprocessor(clauses, weights, topWeight_), topWeight(topWeight_), inProcessMode(inProcessMode_) {
 		variables = 0;
 		originalVariables = 0;
@@ -47,7 +47,7 @@ namespace maxPreprocessor {
 	uint64_t PreprocessorInterface::getRemovedWeight() {
 		return preprocessor.trace.removedWeight;
 	}
-	
+
 	void PreprocessorInterface::preprocess(string techniques, int logLevel, double timeLimit) {
 		preprocessor.logLevel = logLevel;
 		preprocessor.printComments = false;
@@ -59,13 +59,13 @@ namespace maxPreprocessor {
 		preprocessed = true;
 		variables = max(variables, preprocessor.pi.vars);
 	}
-	
+
 	void PreprocessorInterface::getInstance(std::vector<std::vector<int> >& retClauses, std::vector<uint64_t>& retWeights, std::vector<int>& retLabels) {
 		preprocessedInstance = preprocessor.getPreprocessedInstance();
-		
+
 		retClauses = preprocessedInstance.clauses;
 		retWeights = preprocessedInstance.weights;
-		
+
 		for (unsigned i = 0; i < preprocessedInstance.labels.size(); i++) {
 			retLabels.push_back(litToSolver(litToDimacs(preprocessedInstance.labels[i].F)));
 		}
@@ -76,14 +76,14 @@ namespace maxPreprocessor {
 				lit = litToSolver(lit);
 			}
 		}
-		
+
 		for (uint64_t& w : retWeights) {
 			if (w == HARDWEIGHT) {
 				w = topWeight;
 			}
 		}
 	}
-	
+
 	vector<int> PreprocessorInterface::reconstruct(const vector<int>& trueLiterals) {
 		vector<int> ppTrueLiterals;
 		for (int lit : trueLiterals) {
@@ -93,7 +93,7 @@ namespace maxPreprocessor {
 		}
 		return preprocessor.trace.getSolution(ppTrueLiterals, 0, variables, originalVariables).F;
 	}
-	
+
 	void PreprocessorInterface::printSolution(const vector<int>& trueLiterals, ostream& output, uint64_t ansWeight) {
 		vector<int> ppTrueLiterals;
 		for (int lit : trueLiterals) {
@@ -103,11 +103,11 @@ namespace maxPreprocessor {
 		}
 		preprocessor.trace.printSolution(output, ppTrueLiterals, ansWeight, variables, originalVariables);
 	}
-	
+
 	uint64_t PreprocessorInterface::getTopWeight() {
 		return topWeight;
 	}
-	
+
 	int PreprocessorInterface::addVar(int var) {
 		if (!inProcessMode) return 0;
 		assert(var >= 0);
@@ -125,7 +125,7 @@ namespace maxPreprocessor {
 		PPVarToSolverVar[nv-1] = var;
 		return var;
 	}
-	
+
 	int PreprocessorInterface::addLabel(int lbl, uint64_t weight) {
 		if (!inProcessMode) return 0;
 		lbl = addVar(lbl);
@@ -136,7 +136,7 @@ namespace maxPreprocessor {
 		preprocessor.pi.isLabel[iVar] = VAR_FALSE;
 		return lbl;
 	}
-	
+
 	bool PreprocessorInterface::alterWeight(int lbl, uint64_t weight) {
 		if (!inProcessMode) return false;
 		if (lbl < 1) return false;
@@ -168,7 +168,7 @@ namespace maxPreprocessor {
 		}
 		return true;
 	}
-	
+
 	bool PreprocessorInterface::addClause(std::vector<int> clause) {
 		if (!inProcessMode) return false;
 		for (int& lit : clause) {
@@ -191,7 +191,7 @@ namespace maxPreprocessor {
 		preprocessor.pi.addClause(clause);
 		return true;
 	}
-	
+
 	bool PreprocessorInterface::labelToVar(int lbl) {
 		if (!inProcessMode) return false;
 		if (lbl < 1) return false; // what
@@ -213,25 +213,25 @@ namespace maxPreprocessor {
 		preprocessor.pi.removeClause(softClause);
 		return true;
 	}
-	
+
 	bool PreprocessorInterface::resetRemovedWeight() {
 		if (!inProcessMode) return false;
 		preprocessor.trace.removedWeight = 0;
 		return true;
 	}
-	
+
 	void PreprocessorInterface::setBVEGateExtraction(bool use) {
 		useBVEGateExtraction = use;
 	}
-	
+
 	void PreprocessorInterface::setLabelMatching(bool use) {
 		useLabelMatching = use;
 	}
-	
+
 	void PreprocessorInterface::setSkipTechnique(int value) {
 		opt.skipTechnique = value;
 	}
-	
+
 	void PreprocessorInterface::setBVEsortMaxFirst(bool use) {
 		opt.BVEsortMaxFirst = use;
 	}
@@ -269,9 +269,9 @@ namespace maxPreprocessor {
 			cout << "c invalid option " << v.first << " = " << v.second << endl;
 		}
 	}
-	
-	
-	
+
+
+
 
 	int PreprocessorInterface::litToSolver(int lit) {
 		if (PPVarToSolverVar.size() < abs(lit)) PPVarToSolverVar.resize(abs(lit));
@@ -282,29 +282,29 @@ namespace maxPreprocessor {
 		if (lit > 0) return PPVarToSolverVar[abs(lit)-1];
 		else return -PPVarToSolverVar[abs(lit)-1];
 	}
-	
+
 	int PreprocessorInterface::litToPP(int lit) {
 		if ((int)solverVarToPPVar.size() <= abs(lit)-1) return 0;
 		if (lit > 0) return solverVarToPPVar[abs(lit)-1];
 		else return -solverVarToPPVar[abs(lit)-1];
 	}
-	
+
 	void PreprocessorInterface::printInstance(ostream& output, int outputFormat) {
 		std::vector<std::vector<int> > clauses;
 		std::vector<uint64_t> weights;
 		std::vector<int> labels;
 		getInstance(clauses, weights, labels);
-		
-		assert(outputFormat == INPUT_FORMAT_WPMS || outputFormat == INPUT_FORMAT_SAT);
-		
+
+		assert(outputFormat == INPUT_FORMAT_WPMS || outputFormat == INPUT_FORMAT_SAT || INPUT_FORMAT_WPMS22);
+
 		if (clauses.size() == 0) {
 			clauses.push_back({-1, 1});
 			weights.push_back(topWeight);
 		}
-		
+
 		if (outputFormat == INPUT_FORMAT_WPMS) {
 			if (getUpperBound() !=  HARDWEIGHT) output << "c UB " << getUpperBound() << "\n";
-            
+
 			output<<"c assumptions ";
 			for (unsigned i = 0; i < labels.size(); i++) {
 				output<<labels[i];
@@ -314,7 +314,7 @@ namespace maxPreprocessor {
 			}
 			output<<"\n";
 		}
-		
+
 		if (outputFormat == INPUT_FORMAT_WPMS) {
 			output<<"p wcnf "<<max((int)solverVarToPPVar.size(), 1)<<" "<<clauses.size()<<" "<<topWeight<< '\n';
 			for (unsigned i = 0; i < clauses.size(); i++) {
@@ -328,6 +328,15 @@ namespace maxPreprocessor {
 		else if (outputFormat == INPUT_FORMAT_SAT) {
 			output<<"p cnf "<<max((int)solverVarToPPVar.size(), 1)<<" "<<clauses.size()<<'\n';
 			for (unsigned i = 0; i < clauses.size(); i++) {
+				for (int lit : clauses[i]) {
+					output<<lit<<" ";
+				}
+				output<<"0\n";
+			}
+		} else if (outputFormat == INPUT_FORMAT_WPMS22) {
+			for (unsigned i = 0; i < clauses.size(); i++) {
+				if (weights[i] == topWeight) output << "h ";
+				else output << weights[i] << " ";
 				for (int lit : clauses[i]) {
 					output<<lit<<" ";
 				}
@@ -369,5 +378,3 @@ namespace maxPreprocessor {
 		output.flush();
 	}
 }
-
-

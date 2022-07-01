@@ -12,22 +12,22 @@ namespace maxPreprocessor {
 class InputReader {
 private:
 	int nbvar,nbclauses;
-	
+
 	int readClause(std::istream& input, uint64_t defaultWeight);
+	int readHardClause(std::istream& input);
 	int readWeightedClause(std::istream& input);
 	int readCardinalityConstraint(std::istream& inputF);
-	int readLine(std::istream& input);
-	
+	int readLine(std::istream& input, bool maxsat = true);
+
 	int currentLine;
 public:
 	std::string readError;
-	
+
 	uint64_t top;
 	int inputFormat;
 	std::vector<std::vector<int> > clauses;
 	std::vector<uint64_t> weights;
 	std::vector<CardinalityConstraint> cardinalityConstraints;
-	
 	int readClauses(std::istream& input, bool maxSat = true);
 };
 }
