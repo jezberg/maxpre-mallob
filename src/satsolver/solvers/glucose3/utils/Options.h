@@ -27,18 +27,8 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 
 #include "../mtl/IntTypes.h"
 #include "../mtl/Vec.h"
-#include "../utils/ParseUtils.h"
 
 namespace GlucosePre {
-
-//==================================================================================================
-// Top-level option parse/help functions:
-
-
-extern void parseOptions     (int& argc, char** argv, bool strict = false);
-extern void printUsageAndExit(int  argc, char** argv, bool verbose = false);
-extern void setUsageHelp     (const char* str);
-extern void setHelpPrefixStr (const char* str);
 
 
 //==================================================================================================
@@ -64,23 +54,21 @@ class Option
         }
     };
 
-    Option(const char* name_, 
+    Option(const char* name_,
            const char* desc_,
            const char* cate_,
-           const char* type_) : 
+           const char* type_) :
       name       (name_)
     , description(desc_)
     , category   (cate_)
     , type_name  (type_)
-    { 
-        getOptionList().push(this); 
+    {
+        getOptionList().push(this);
     }
 
  public:
     virtual ~Option() {}
 
-    virtual bool parse             (const char* str)      = 0;
-    virtual void help              (bool verbose = false) = 0;
 
     friend  void parseOptions      (int& argc, char** argv, bool strict);
     friend  void printUsageAndExit (int  argc, char** argv, bool verbose);
@@ -133,44 +121,6 @@ class DoubleOption : public Option
     operator      double   (void) const { return value; }
     operator      double&  (void)       { return value; }
     DoubleOption& operator=(double x)   { value = x; return *this; }
-
-    virtual bool parse(const char* str){
-        const char* span = str; 
-
-        if (!match(span, "-") || !match(span, name) || !match(span, "="))
-            return false;
-
-        char*  end;
-        double tmp = strtod(span, &end);
-
-        if (end == NULL) 
-            return false;
-        else if (tmp >= range.end && (!range.end_inclusive || tmp != range.end)){
-            fprintf(stderr, "ERROR! value <%s> is too large for option \"%s\".\n", span, name);
-            exit(1);
-        }else if (tmp <= range.begin && (!range.begin_inclusive || tmp != range.begin)){
-            fprintf(stderr, "ERROR! value <%s> is too small for option \"%s\".\n", span, name);
-            exit(1); }
-
-        value = tmp;
-        // fprintf(stderr, "READ VALUE: %g\n", value);
-
-        return true;
-    }
-
-    virtual void help (bool verbose = false){
-        fprintf(stderr, "  -%-12s = %-8s %c%4.2g .. %4.2g%c (default: %g)\n", 
-                name, type_name, 
-                range.begin_inclusive ? '[' : '(', 
-                range.begin,
-                range.end,
-                range.end_inclusive ? ']' : ')', 
-                value);
-        if (verbose){
-            fprintf(stderr, "\n        %s\n", description);
-            fprintf(stderr, "\n");
-        }
-    }
 };
 
 
@@ -187,53 +137,10 @@ class IntOption : public Option
  public:
     IntOption(const char* c, const char* n, const char* d, int32_t def = int32_t(), IntRange r = IntRange(INT32_MIN, INT32_MAX))
         : Option(n, d, c, "<int32>"), range(r), value(def) {}
- 
+
     operator   int32_t   (void) const { return value; }
     operator   int32_t&  (void)       { return value; }
     IntOption& operator= (int32_t x)  { value = x; return *this; }
-
-    virtual bool parse(const char* str){
-        const char* span = str; 
-
-        if (!match(span, "-") || !match(span, name) || !match(span, "="))
-            return false;
-
-        char*   end;
-        int32_t tmp = strtol(span, &end, 10);
-
-        if (end == NULL) 
-            return false;
-        else if (tmp > range.end){
-            fprintf(stderr, "ERROR! value <%s> is too large for option \"%s\".\n", span, name);
-            exit(1);
-        }else if (tmp < range.begin){
-            fprintf(stderr, "ERROR! value <%s> is too small for option \"%s\".\n", span, name);
-            exit(1); }
-
-        value = tmp;
-
-        return true;
-    }
-
-    virtual void help (bool verbose = false){
-        fprintf(stderr, "  -%-12s = %-8s [", name, type_name);
-        if (range.begin == INT32_MIN)
-            fprintf(stderr, "imin");
-        else
-            fprintf(stderr, "%4d", range.begin);
-
-        fprintf(stderr, " .. ");
-        if (range.end == INT32_MAX)
-            fprintf(stderr, "imax");
-        else
-            fprintf(stderr, "%4d", range.end);
-
-        fprintf(stderr, "] (default: %d)\n", value);
-        if (verbose){
-            fprintf(stderr, "\n        %s\n", description);
-            fprintf(stderr, "\n");
-        }
-    }
 };
 
 
@@ -249,53 +156,10 @@ class Int64Option : public Option
  public:
     Int64Option(const char* c, const char* n, const char* d, int64_t def = int64_t(), Int64Range r = Int64Range(INT64_MIN, INT64_MAX))
         : Option(n, d, c, "<int64>"), range(r), value(def) {}
- 
+
     operator     int64_t   (void) const { return value; }
     operator     int64_t&  (void)       { return value; }
     Int64Option& operator= (int64_t x)  { value = x; return *this; }
-
-    virtual bool parse(const char* str){
-        const char* span = str; 
-
-        if (!match(span, "-") || !match(span, name) || !match(span, "="))
-            return false;
-
-        char*   end;
-        int64_t tmp = strtoll(span, &end, 10);
-
-        if (end == NULL) 
-            return false;
-        else if (tmp > range.end){
-            fprintf(stderr, "ERROR! value <%s> is too large for option \"%s\".\n", span, name);
-            exit(1);
-        }else if (tmp < range.begin){
-            fprintf(stderr, "ERROR! value <%s> is too small for option \"%s\".\n", span, name);
-            exit(1); }
-
-        value = tmp;
-
-        return true;
-    }
-
-    virtual void help (bool verbose = false){
-        fprintf(stderr, "  -%-12s = %-8s [", name, type_name);
-        if (range.begin == INT64_MIN)
-            fprintf(stderr, "imin");
-        else
-            fprintf(stderr, "%4" PRIi64, range.begin);
-
-        fprintf(stderr, " .. ");
-        if (range.end == INT64_MAX)
-            fprintf(stderr, "imax");
-        else
-            fprintf(stderr, "%4" PRIi64, range.end);
-
-        fprintf(stderr, "] (default: %" PRIi64")\n", value);
-        if (verbose){
-            fprintf(stderr, "\n        %s\n", description);
-            fprintf(stderr, "\n");
-        }
-    }
 };
 #endif
 
@@ -307,30 +171,12 @@ class StringOption : public Option
 {
     const char* value;
  public:
-    StringOption(const char* c, const char* n, const char* d, const char* def = NULL) 
+    StringOption(const char* c, const char* n, const char* d, const char* def = NULL)
         : Option(n, d, c, "<string>"), value(def) {}
 
     operator      const char*  (void) const     { return value; }
     operator      const char*& (void)           { return value; }
     StringOption& operator=    (const char* x)  { value = x; return *this; }
-
-    virtual bool parse(const char* str){
-        const char* span = str; 
-
-        if (!match(span, "-") || !match(span, name) || !match(span, "="))
-            return false;
-
-        value = span;
-        return true;
-    }
-
-    virtual void help (bool verbose = false){
-        fprintf(stderr, "  -%-10s = %8s\n", name, type_name);
-        if (verbose){
-            fprintf(stderr, "\n        %s\n", description);
-            fprintf(stderr, "\n");
-        }
-    }    
 };
 
 
@@ -343,41 +189,12 @@ class BoolOption : public Option
     bool value;
 
  public:
-    BoolOption(const char* c, const char* n, const char* d, bool v) 
+    BoolOption(const char* c, const char* n, const char* d, bool v)
         : Option(n, d, c, "<bool>"), value(v) {}
 
     operator    bool     (void) const { return value; }
     operator    bool&    (void)       { return value; }
     BoolOption& operator=(bool b)     { value = b; return *this; }
-
-    virtual bool parse(const char* str){
-        const char* span = str; 
-        
-        if (match(span, "-")){
-            bool b = !match(span, "no-");
-
-            if (strcmp(span, name) == 0){
-                value = b;
-                return true; }
-        }
-
-        return false;
-    }
-
-    virtual void help (bool verbose = false){
-
-        fprintf(stderr, "  -%s, -no-%s", name, name);
-
-        for (uint32_t i = 0; i < 32 - strlen(name)*2; i++)
-            fprintf(stderr, " ");
-
-        fprintf(stderr, " ");
-        fprintf(stderr, "(default: %s)\n", value ? "on" : "off");
-        if (verbose){
-            fprintf(stderr, "\n        %s\n", description);
-            fprintf(stderr, "\n");
-        }
-    }
 };
 
 //=================================================================================================

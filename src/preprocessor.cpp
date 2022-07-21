@@ -7,6 +7,7 @@
 #include <unordered_set>
 #include <map>
 #include <set>
+#include <sstream>
 #include <stack>
 
 #include "preprocessor.hpp"
@@ -29,8 +30,8 @@ Preprocessor::Preprocessor(const vector<vector<int> >& clauses, const vector<uin
 	originalClauses = pi.clauses.size();
 	BIGIt = 1;
 	BVElocalGrow = 0;
-	BVEglobalGrow = 0;	
-	
+	BVEglobalGrow = 0;
+
 	redSatSolverCalls = 0;
 
 	bestCost = HARDWEIGHT;
@@ -52,11 +53,11 @@ void Preprocessor::prepareSatSolver() {
 		delete satSolver;
 	}
 	satSolver = (SATSolver*) new Glucose3();
-	
+
 	for (unsigned c = 0; c<pi.clauses.size(); ++c) {
 		if (pi.isClauseRemoved(c)) continue;
 		if (!pi.clauses[c].isHard()) continue;
-		
+
 		satSolver->addClause(pi.clauses[c].lit);
 	}
 }
@@ -90,14 +91,14 @@ int Preprocessor::setVariable(int var, bool value) {
 // This is called only in the beginning since no tautologies are added
 void Preprocessor::removeTautologies() {
 	int found = 0;
-	
+
 	for (unsigned i = 0; i < pi.clauses.size(); i++) {
 		if (isTautology(pi.clauses[i])) {
 			found++;
 			pi.removeClause(i);
 		}
 	}
-	
+
 	log(found, " tautologies removed");
 }
 
@@ -218,7 +219,7 @@ int Preprocessor::eliminateReduntantLabels() {
 void Preprocessor::identifyLabels() {
 	int found = 0;
 	int eliminated = 0;
-	
+
 	// Find unit soft clauses where the negation of the literal occurs only in hard clauses
 	for (int lit = 0; lit < pi.vars*2; lit++) {
 		if (pi.isLabel[litVariable(lit)]) continue;
@@ -254,7 +255,7 @@ void Preprocessor::identifyLabels() {
 					toRemove.push_back(pi.litClauses[lit][0]);
 					f = true;
 					break;
-				} 
+				}
 			}
 		}
 		eliminated += toRemove.size();
@@ -262,7 +263,7 @@ void Preprocessor::identifyLabels() {
 			pi.removeClause(c);
 		}
 		if (f) continue;
-		
+
 		if (litValue(lit) == true) {
 			pi.isLabel[litVariable(lit)] = VAR_TRUE;
 		} else {
@@ -270,7 +271,7 @@ void Preprocessor::identifyLabels() {
 		}
 		found++;
 	}
-	
+
 	log(found, " labels identified");
 	log(eliminated, " soft unit clauses eliminated");
 }
@@ -278,7 +279,7 @@ void Preprocessor::identifyLabels() {
 // This is called only in the beginning
 void Preprocessor::createLabels() {
 	int added = 0;
-	
+
 	// Create labels for every soft clause that does not have a label yet
 	for (unsigned i = 0; i < pi.clauses.size(); i++) {
 		if (!pi.clauses[i].isHard() && !pi.isClauseRemoved(i) && !pi.isLabelClause(i)) {
@@ -290,7 +291,7 @@ void Preprocessor::createLabels() {
 			added++;
 		}
 	}
-	
+
 	log(added, " labels added");
 }
 
@@ -301,7 +302,7 @@ int Preprocessor::removeEmptyClauses() {
 		if (!pi.isClauseRemoved(i)) {
 			if (pi.clauses[i].lit.size() == 0) {
 				if (pi.clauses[i].isHard()) {
-					
+
 				}
 				else {
 					src.push_back(i);
@@ -372,7 +373,7 @@ int Preprocessor::doUP() {
 			removed += tryUP(lit);
 		}
 	}
-	
+
 	log(removed, " clauses removed by UP");
 	rLog.stopTechnique(Log::Technique::UP);
 	return removed;
@@ -421,7 +422,7 @@ int Preprocessor::removeDuplicateClauses() {
 				hard = false;
 				continue;
 			}
-			
+
 			if (hard || pi.clauses[has[i-1].S].isHard()) {
 				hard = true;
 				toRemove.push_back(has[i].S);
@@ -467,7 +468,7 @@ int Preprocessor::removeDuplicateClauses() {
 					hard = false;
 					continue;
 				}
-				
+
 				if (hard || pi.clauses[has[i-1].S].isHard()) {
 					hard = true;
 					toRemove.push_back(has[i].S);
@@ -508,8 +509,8 @@ int Preprocessor::removeDuplicateClauses() {
 #include "GSLE.cpp"
 #include "FLP.cpp"
 #include "LS.cpp"
-#include "AM1.cpp" 
-#include "TMS.cpp" 
+#include "AM1.cpp"
+#include "TMS.cpp"
 #include "RED.cpp"
 #include "HARD.cpp"
 #include "FLE.cpp"
@@ -813,10 +814,10 @@ void Preprocessor::preprocess(string techniques, double timeLimit, bool debug, b
 	Timer preTime;
 	preTime.start();
 	log(originalVars, " variables, ", originalClauses, " clauses");
-	
+
 	print("c techniques ", techniques);
 	log("techniques ", techniques);
-	
+
 	string preTechniques;
 	for (unsigned i = 0; i < techniques.size(); i++) {
 		if (techniques[i] == '#') {
@@ -825,22 +826,22 @@ void Preprocessor::preprocess(string techniques, double timeLimit, bool debug, b
 			break;
 		}
 	}
-	
+
 	if (!validTechniques(techniques) || !validPreTechniques(preTechniques)) {
 		log("Invalid techniques");
 		print("c Invalid techniques");
 		abort();
 	}
-	
+
 	if (initialCall) {
 		removeTautologies();
 		pi.tl.init(pi.vars);
 		removeEmptyClauses();
 	}
-	
+
 	int dpRm = removeDuplicateClauses();
 	log(dpRm, " duplicate clauses removed");
-	
+
 	if (initialCall) {
 		if (preTechniques.size() > 0) {
 			preTime.stop(); // be sure that these 3 lines will be ran exactly once
@@ -848,40 +849,40 @@ void Preprocessor::preprocess(string techniques, double timeLimit, bool debug, b
 			rLog.startTimer();
 			doPreprocess(preTechniques, 0, (int)preTechniques.size() - 1, debug, false);
 		}
-		
+
 		removeEmptyClauses();
 		identifyLabels();
 		createLabels();
-		
+
 		if (matchLabels) {
 			int labelsMatched = eliminateReduntantLabels();
 			rLog.labelsMatched += labelsMatched;
 			log(labelsMatched, " labels matched");
 		}
-		
+
 		dpRm = removeDuplicateClauses();
 		log(dpRm, " duplicate clauses removed");
-		
+
 		pi.tl.init(pi.vars);
 	}
-	
+
 	if (!initialCall || preTechniques.size() == 0) {
 		preTime.stop();// here
 		rLog.timePlan(timeLimit - preTime.getTime().count(), techniques);
 		rLog.startTimer();
 	}
-	
+
 	doPreprocess(techniques, 0, (int)techniques.size() - 1, debug, true);
-	
+
 	rLog.stopTimer();
-	
+
 	removeEmptyClauses();
-	
+
 	dpRm = removeDuplicateClauses();
 	log(dpRm, " duplicate clauses removed");
-	
+
 	rLog.weightRange = pi.getWeightSum();
-		
+
 	int clauses=0;
 	for (unsigned i=0; i<pi.clauses.size(); ++i) {
 		if (!pi.isClauseRemoved(i)) ++clauses;
@@ -893,6 +894,14 @@ void Preprocessor::preprocess(string techniques, double timeLimit, bool debug, b
 	stats["final_weight_sum"]=rLog.weightRange;
 	stats["final_clauses"]=clauses;
 	stats["final_variables"]=vars;
+}
+
+std::string Preprocessor::version(int l) {
+	std::stringstream vs;
+	if (l&1) vs << "MaxPRE ";
+	vs << "2.0.1";
+	if (l&2) vs << " (" << GIT_IDENTIFIER << ", " << __DATE__ << " " << __TIME__ << ")";
+	return vs.str();
 }
 
 }

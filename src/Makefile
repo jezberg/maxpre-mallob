@@ -1,8 +1,9 @@
+GITV = $(shell git describe --always --dirty)
 CC = g++
-CFLAGS = -std=c++11 -O2 -Wall -Wextra -Wshadow -g -Wfatal-errors -fPIC -Isatsolver/solvers/glucose-3.0/ 
+CFLAGS = -std=c++11 -O2 -Wall -Wextra -Wshadow -g -Wfatal-errors -fPIC -Isatsolver/solvers/glucose-3.0/ -DGIT_IDENTIFIER=\"$(GITV)\"
 OBJFILES = preprocessor.o inputreader.o outputreader.o preprocessedinstance.o trace.o utility.o probleminstance.o timer.o clause.o log.o AMSLEX.o touchedlist.o preprocessorinterface.o cardinalityconstraint.o satlikeinterface.o
-LIBFILES = satsolver/solvers/glucose-3.0/core/lib_standard.a
-SATOBJFILES = satsolver/solvers/glucose-3.0/core/Solver.o  satsolver/solvers/glucose-3.0/utils/Options.o  satsolver/solvers/glucose-3.0/utils/System.o
+LIBFILES = satsolver/solvers/lib/libglucose3.a
+SATOBJFILES = satsolver/solvers/glucose3/core/Solver.o satsolver/solvers/glucose3/utils/System.o
 
 all: preprocessor
 
@@ -19,9 +20,12 @@ lib: satsolvers preprocessorinterface.o $(OBJFILES)
 
 -include *.d
 
-satsolvers:
-	(cd satsolver/solvers/ && python download_solvers.py)
+satsolvers: glucose3
 
-clean: 
+glucose3:
+		$(MAKE) -C satsolver/solvers/glucose3 lib
+
+clean:
 	rm -f lib/*.a
 	rm -f *.o *.d
+	$(MAKE) -C satsolver/solvers/glucose3 clean

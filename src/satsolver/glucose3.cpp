@@ -2,7 +2,7 @@
 
 
 #include "satsolverinterface.hpp"
-#include "solvers/glucose-3.0/core/Solver.h"
+#include "solvers/glucose3/core/Solver.h"
 
 #ifndef GLUCOSE3_CPP
 #define GLUCOSE3_CPP

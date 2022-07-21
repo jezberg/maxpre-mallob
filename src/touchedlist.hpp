@@ -4,6 +4,7 @@
 #include <deque>
 #include <cstdint>
 #include <map>
+#include <string>
 
 namespace maxPreprocessor {
 class ProblemInstance;
