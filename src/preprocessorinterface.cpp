@@ -28,8 +28,8 @@ namespace maxPreprocessor {
 		preprocessed = false;
 		useBVEGateExtraction = false;
 		useLabelMatching = false;
-		preprocessor.BVElocalGrow = 0;
-		preprocessor.BVEglobalGrow = 0;
+		BVElocalGrow = 0;
+		BVEglobalGrow = 0;
 
 
 		if (inProcessMode) {

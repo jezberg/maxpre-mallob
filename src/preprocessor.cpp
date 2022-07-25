@@ -899,7 +899,7 @@ void Preprocessor::preprocess(string techniques, double timeLimit, bool debug, b
 std::string Preprocessor::version(int l) {
 	std::stringstream vs;
 	if (l&1) vs << "MaxPRE ";
-	vs << "2.0.1";
+	vs << "2.0.2";
 	if (l&2) vs << " (" << GIT_IDENTIFIER << ", " << __DATE__ << " " << __TIME__ << ")";
 	return vs.str();
 }
