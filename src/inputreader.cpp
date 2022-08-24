@@ -28,12 +28,9 @@ int InputReader::readWeightedClause(istream& input) {
 	if (input.fail()) {
 		return 1;
 	}
-	cerr << "weight = " << weight << "" << endl;
-	cerr << "clause ="; for (int l : clause) cerr << l << " "; cerr << endl;
 	if (weight == 0) return 0;
 	clauses.push_back(clause);
 	weights.push_back(weight);
-	cerr << "weights.push_back(" << weight << ")" << endl;
 	return 0;
 }
 
