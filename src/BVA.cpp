@@ -55,7 +55,7 @@ int Preprocessor::canBVA(int c, int d, int lit) {
 
 int Preprocessor::tryBVA(int lit, unordered_map<uint64_t, int>& hashes) {
 	const bool noLabels = false;
-	if (noLabels && pi.isLabel[litVariable(lit)]) return 0;
+	if (noLabels && pi.isLabelVar(litVariable(lit))) return 0;
 	removeDuplicateClauses();
 	vector<int> mLit = {lit};
 	vector<int> mCls = pi.litClauses[lit];
@@ -88,7 +88,7 @@ int Preprocessor::tryBVA(int lit, unordered_map<uint64_t, int>& hashes) {
 				int hd = canBVA(c, d, lit);
 				if (hd != -1) {
 					assert(hd != lit);
-					if (!(pi.isLabel[litVariable(hd)] && noLabels)) P.push_back({hd, c});
+					if (!(pi.isLabelVar(litVariable(hd)) && noLabels)) P.push_back({hd, c});
 				}
 			}
 		}

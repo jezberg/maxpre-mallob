@@ -164,21 +164,26 @@ bool parseLabelMatching(map<string, string>& flags) {
 	return labelMatching;
 }
 
-bool parseProblemType(map<string, string>& flags) {
-	bool maxSat = true;
+int parseProblemType(map<string, string>& flags) {
+	int problemType = 1;
 	if (flags.count("problemtype")) {
 		for (char& c : flags["problemtype"]) {
 			c = tolower(c);
 		}
 		if (flags["problemtype"] == "sat") {
-			maxSat = false;
+			problemType = 0;
 			cout<<"c Problem type is SAT"<<endl;
 			cerr<<"Problem type is SAT"<<endl;
 		}
 		else if (flags["problemtype"] == "maxsat" || flags["problemtype"] == "max-sat") {
-			maxSat = true;
+			problemType = 1;
 			cout<<"c Problem type is Max-SAT"<<endl;
 			cerr<<"Problem type is Max-SAT"<<endl;
+		}
+		else if (flags["problemtype"] == "biobj" || flags["problemtype"] == "multiobj" || flags["problemtype"] == "moo") {
+			problemType = 2;
+			cout<<"c Problem type is multiobjective optimization"<<endl;
+			cerr<<"Problem type is multiobjective optimization"<<endl;
 		}
 		else {
 			cout<<"Invalid problemtype flag"<<endl;
@@ -190,7 +195,7 @@ bool parseProblemType(map<string, string>& flags) {
 		cout<<"c No -problemtype given, defaulting to Max-SAT"<<endl;
 		cerr<<"No -problemtype given, defaulting to Max-SAT"<<endl;
 	}
-	return maxSat;
+	return problemType;
 }
 
 int parseSkipTechnique(map<string, string>& flags) {
@@ -456,13 +461,13 @@ void printHelp(ostream& out, map<string, int>& intVars, map<string, bool>& boolV
 	}
 	out<<"-problemtype (default: maxsat)"<<endl;
 	if (!shrt) {
-		out<<"\tstring: {maxsat, sat}"<<endl;
+		out<<"\tstring: {maxsat, sat, moo}"<<endl;
 		out<<"\tShould the problem be preprocessed as a MaxSAT or SAT instance"<<endl;
 		out<<endl;
 	}
 	out<<"-outputformat (default: wpms22)"<<endl;
 	if (!shrt) {
-		out<<"\tstring: {original, wpms, wpms22, sat}"<<endl;
+		out<<"\tstring: {original, wpms, wpms22, sat, moo}"<<endl;
 		out<<"\tBy default the preprocessor always gives the output in weighted partial MaxSAT format"<<endl;
 		out<<"\tOutput in SAT format by setting this to original when preprocessing SAT instances"<<endl;
 		out<<endl;
@@ -519,6 +524,7 @@ void printHelp(ostream& out, map<string, int>& intVars, map<string, bool>& boolV
 		out<<endl;
 	}
 
+
 	if (intVars.size()) {
 		if (!shrt) out<<"Following integer values"<<endl;
 		for (auto& s : intVars) out<<(shrt?"":"\t")<<"-"<<s.first<<" (default: "<<s.second<<")"<<endl;
@@ -540,7 +546,6 @@ void printHelp(ostream& out, map<string, int>& intVars, map<string, bool>& boolV
 		for (auto& s : uint64Vars) out<<(shrt?"":"\t")<<"-"<<s.first<<" (default: "<<s.second<<")"<<endl;
 		if (!shrt) out << endl;
 	}
-	out<<endl;
 
 	out<<"-verb (default: 1)"<<endl;
 	if (!shrt) {
@@ -572,6 +577,9 @@ int main(int argc, char* argv[]){
 	boolVars["MRED_trimBefore"]=false;
 	intVars["MRED_randomizedTries"]=0;
 	intVars["LRED_minPartitions"]=1;
+
+	intVars["FLE_redTechniques"]=0;
+	doubleVars["FLE_redTechniquesActivate"]=2;
 
 
 	if ((argc > 1 && isHelp(argv[1])) || (argc > 2 && isHelp(argv[2])) || (argc > 3 && isHelp(argv[3]))) {
@@ -656,7 +664,7 @@ int main(int argc, char* argv[]){
 	double timeLimit = parseTimeLimit(flags);
 	bool BVEgate = parseBVEgate(flags);
 	bool labelMatching = parseLabelMatching(flags);
-	bool maxSat = parseProblemType(flags);
+	int problemType = parseProblemType(flags);
 	int skipTechnique = parseSkipTechnique(flags);
 	bool BVEsortMaxFirst = parseBVEsortMaxFirst(flags);
 	int BVElocalGrow = parseBVElocalGrow(flags);
@@ -681,7 +689,7 @@ int main(int argc, char* argv[]){
 		return 0;
 	}
 	maxPreprocessor::InputReader inputReader;
-	int readStatus = inputReader.readClauses(instanceFile, maxSat);
+	int readStatus = inputReader.readClauses(instanceFile, problemType);
 	instanceFile.close();
 
 	if (readStatus > 0) {
@@ -695,11 +703,14 @@ int main(int argc, char* argv[]){
 		if (flags["outputformat"] == "original")	outputFormat = inputReader.inputFormat;
 		else if (flags["outputformat"] == "wpms")	outputFormat = maxPreprocessor::INPUT_FORMAT_WPMS;
 		else if (flags["outputformat"] == "wpms22")	outputFormat = maxPreprocessor::INPUT_FORMAT_WPMS22;
-		else if (flags["outputformat"] == "sat")	outputFormat = maxPreprocessor::	INPUT_FORMAT_SAT;
+		else if (flags["outputformat"] == "sat")	outputFormat = maxPreprocessor::INPUT_FORMAT_SAT;
+		else if (flags["outputformat"] == "moo")	outputFormat = maxPreprocessor::INPUT_FORMAT_WMOO;
 		else {
 			cout << "c invalid outputformat value " << flags["outputformat"] << endl;
 			cerr << "Invalid outputformat value " << flags["outputformat"] << endl;
 		}
+
+
 		if (outputFormat == maxPreprocessor::INPUT_FORMAT_MS) {
 			// preprocessor works in labeled cnf so it cannot output pure maxsat
 			outputFormat = maxPreprocessor::INPUT_FORMAT_WPMS;
@@ -713,6 +724,9 @@ int main(int argc, char* argv[]){
 		}
 		else if (outputFormat == maxPreprocessor::INPUT_FORMAT_WPMS22) {
 			outf = "weighted partial Max-SAT (2022 ->)";
+		}
+		else if (outputFormat == maxPreprocessor::INPUT_FORMAT_WMOO) {
+			outf = "multiobjective optimization";
 		}
 		else {
 			return 0;

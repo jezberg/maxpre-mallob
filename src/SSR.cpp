@@ -18,7 +18,7 @@ bool Preprocessor::SSRC(int c1, int c2, int var) {
 
 	uint64_t bmP = ((uint64_t)1 << (uint64_t)(posLit(var)&63));
 	uint64_t bmN = ((uint64_t)1 << (uint64_t)(negLit(var)&63));
-	
+
 	bool canP = false;
 	bool canN = false;
 
@@ -76,15 +76,15 @@ int Preprocessor::trySSRAmsLex(int var) {
 int Preprocessor::trySSRHash(int var) {
 	uint64_t bmP = ((uint64_t)1 << (uint64_t)(posLit(var)&63));
 	uint64_t bmN = ((uint64_t)1 << (uint64_t)(negLit(var)&63));
-	
+
 	vector<int>& pc = pi.litClauses[posLit(var)];
 	vector<int>& nc = pi.litClauses[negLit(var)];
 	uint64_t k = 1;
 	while ((1<<k) < max((int)pc.size(), (int)nc.size())) k++;
-	
+
 	vector<vector<pair<int, uint64_t> > > hp(1<<k);
 	vector<vector<pair<int, uint64_t> > > hn(1<<k);
-	
+
 	for (int c : pc) {
 		// do UP to avoid special case
 		if (pi.clauses[c].lit.size() == 1){
@@ -96,7 +96,7 @@ int Preprocessor::trySSRHash(int var) {
 		}
 		hp[h].push_back({c, pi.clauses[c].hash});
 	}
-	
+
 	for (int c : nc) {
 		// do UP to avoid special case
 		if (pi.clauses[c].lit.size() == 1){
@@ -108,7 +108,7 @@ int Preprocessor::trySSRHash(int var) {
 		}
 		hn[h].push_back({c, pi.clauses[c].hash});
 	}
-	
+
 	int removed = 0;
 	bool f  = true;
 	while (f) {
@@ -165,17 +165,17 @@ int Preprocessor::trySSRHash(int var) {
 
 int Preprocessor::trySSR2(int var) {
 	int removed = 0;
-	
+
 	uint64_t bmP = ((uint64_t)1 << (uint64_t)(posLit(var)&63));
 	uint64_t bmN = ((uint64_t)1 << (uint64_t)(negLit(var)&63));
-	
+
 	bool f = true;
 	while (f) {
 		f = false;
 		for (int c1 : pi.litClauses[posLit(var)]) {
 			for (int c2 : pi.litClauses[negLit(var)]) {
 				if ((((pi.clauses[c1].hash ^ bmP) | pi.clauses[c2].hash) != pi.clauses[c2].hash) && (((pi.clauses[c2].hash ^ bmN) | pi.clauses[c1].hash) != pi.clauses[c1].hash)) continue;
-				
+
 				if (SSRC(c1, c2, var)) {
 					f = true;
 					removed++;
@@ -198,10 +198,10 @@ int Preprocessor::trySSR(int var) {
 			for (int ii = 0; ii < (int)pi.litClauses[negLit(var)].size(); ii++) {
 				Clause& cp = pi.clauses[pi.litClauses[posLit(var)][i]];
 				Clause& cn = pi.clauses[pi.litClauses[negLit(var)][ii]];
-				
+
 				bool canP = canSSR(var, cn, cp);
 				bool canN = canSSR(var, cp, cn);
-				
+
 				if (canP && canN) {
 					pi.removeLiteralFromClause(posLit(var), pi.litClauses[posLit(var)][i]);
 					rLog.removeLiteral(1);
@@ -234,7 +234,7 @@ int Preprocessor::trySSR(int var) {
 
 int Preprocessor::trySSRgen(int var) {
 	int eliminated = 0;
-	if (pi.isLabel[var] == 0 && pi.litClauses[posLit(var)].size() > 0 && pi.litClauses[negLit(var)].size() > 0) {
+	if (!pi.isLabelVar(var) && pi.litClauses[posLit(var)].size() > 0 && pi.litClauses[negLit(var)].size() > 0) {
 		uint64_t n = (uint64_t)pi.litClauses[posLit(var)].size()*(uint64_t)pi.litClauses[negLit(var)].size();
 		if (n <= opt.SSR_Lim) {
 			eliminated += trySSR2(var);
@@ -248,7 +248,7 @@ int Preprocessor::trySSRgen(int var) {
 				avg += pi.clauses[c].lit.size();
 			}
 			avg /= (int)(pi.litClauses[posLit(var)].size() + pi.litClauses[negLit(var)].size());
-			
+
 			if (avg <= opt.SSR_HashLim) {
 				eliminated += trySSRHash(var);
 			}
@@ -307,7 +307,7 @@ int Preprocessor::doSSR() {
 
 void Preprocessor::doSSR2() {
 	for (int var = 0; var < pi.vars; var++) {
-		if (pi.isLabel[var] == 0 && pi.litClauses[posLit(var)].size() > 0 && pi.litClauses[negLit(var)].size() > 0) {
+		if (!pi.isLabelVar(var) && pi.litClauses[posLit(var)].size() > 0 && pi.litClauses[negLit(var)].size() > 0) {
 			if (trySSR(var) != 0){
 				print("fail SSR ", var + 1);
 				abort();

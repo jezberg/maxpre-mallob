@@ -12,22 +12,81 @@
 using namespace std;
 namespace maxPreprocessor{
 
-bool ProblemInstance::isClauseRemoved(int clause) const {
-	return removedClauses[clause];
+
+int ProblemInstance::labelPolarity(int var, int objective) const {
+	return ((isLabel[var]>>objective)&1) | ((isLabel[var]>>(objective+15))&2);
 }
 
-bool ProblemInstance::isSimpleSoftClause(int clause) const {
-	if (!clauses[clause].isHard()) return false;
-	int label = -1;
-	for (int l : clauses[clause].lit) {
-		if (isLabel[litVariable(l)]) {
-			if (label != -1) return false;
-			if (litClauses[l].size() != 1) return false; // TODO
-			label = l;
+int ProblemInstance::slabelPolarity(int var) const {
+	if ((isLabel[var]&65535) && !((isLabel[var]>>16)&65535)) {
+		return VAR_TRUE;
+	} else if (!(isLabel[var]&65535) && ((isLabel[var]>>16)&65535)) {
+		return VAR_FALSE;
+	}
+	return 0;
+}
+
+int ProblemInstance::labelIndexMask(int var) const {
+	return (isLabel[var]&65535) | ((isLabel[var]>>16)&65535);
+}
+
+bool ProblemInstance::isLabelVar(int var) const {
+	return isLabel[var];
+}
+
+bool ProblemInstance::isLabelVar(int var, int objective) const {
+	return isLabel[var] & (65537<<objective);
+}
+
+void ProblemInstance::unLabel(int lbl) {
+	isLabel[lbl] = 0;
+}
+
+void ProblemInstance::unLabelPolarity(int lbl, int polarity) {
+	if (polarity == VAR_TRUE) {
+		isLabel[lbl] &= ~(65535);
+	} else {
+		isLabel[lbl] &= 65535;
+	}
+}
+
+void ProblemInstance::unLabel(int lbl, int objective) {
+	isLabel[lbl] &= ~(65537<<objective);
+}
+
+void ProblemInstance::mkLabel(int lbl, int objective, int polarity) {
+	unLabel(lbl, objective);
+	if (polarity == VAR_TRUE) {
+		isLabel[lbl] |= (1<<objective);
+	} else {
+		isLabel[lbl] |= (65536<<objective);
+	}
+}
+
+void ProblemInstance::updateLabelMask(int lbl) {
+	unLabel(lbl);
+	if (litClauses[negLit(lbl)].size() && !clauses[litClauses[negLit(lbl)][0]].isHard()) {
+		int cl = litClauses[negLit(lbl)][0];
+		for (unsigned i=0; i<clauses[cl].weights.size(); ++i) {
+			if (clauses[cl].weights[i]) {
+				isLabel[lbl] |= (65536<<i);
+			}
 		}
 	}
-	if (label == -1) return false;
-	return true;
+	if (litClauses[posLit(lbl)].size() && !clauses[litClauses[posLit(lbl)][0]].isHard()) {
+		int cl = litClauses[posLit(lbl)][0];
+		for (unsigned i=0; i<clauses[cl].weights.size(); ++i) {
+			if (clauses[cl].weights[i]) {
+				isLabel[lbl] |= (1<<i);
+			}
+		}
+	}
+	// assert labeling is valid: unique polarity for each objective
+	assert( (isLabel[lbl] ^ (isLabel[lbl]>>16)) ==  (isLabel[lbl] | (isLabel[lbl]>>16)));
+}
+
+bool ProblemInstance::isClauseRemoved(int clause) const {
+	return removedClauses[clause];
 }
 
 bool ProblemInstance::isVarRemoved(int var) const {
@@ -35,8 +94,33 @@ bool ProblemInstance::isVarRemoved(int var) const {
 	return true;
 }
 
+
 bool ProblemInstance::isLitLabel(int lit) const {
-	return isLabel[litVariable(lit)] == (litValue(lit) ? VAR_TRUE : VAR_FALSE);
+	if (litValue(lit) == VAR_TRUE) {
+		return isLabel[litVariable(lit)]&65535;
+	} else {
+		return isLabel[litVariable(lit)]&(65535<<16);
+	}
+}
+
+bool ProblemInstance::isLitLabel(int lit, int objective) const {
+	if (litValue(lit) == VAR_TRUE) {
+		return isLabel[litVariable(lit)]&(1<<objective);
+	} else {
+		return isLabel[litVariable(lit)]&(65536<<objective);
+	}
+}
+
+int ProblemInstance::labelObjectives(int var) const {
+	return __builtin_popcount(isLabel[var]);
+}
+
+int ProblemInstance::labelObjective(int var) const {
+	const int m = labelIndexMask(var);
+	if (m==1) return 0;
+	if (m==2) return 1;
+	for (int i=2; i<objectives; ++i) if (m==(1<<i)) return i;
+	return -1;
 }
 
 bool ProblemInstance::isLabelClause(int clauseId) const {
@@ -47,59 +131,125 @@ bool ProblemInstance::isLabelClause(int clauseId) const {
 	return true;
 }
 
-uint64_t ProblemInstance::labelWeight(int lbl) const {
-	if (isLabel[lbl] == VAR_TRUE) {
+uint64_t ProblemInstance::labelWeight(int lbl, int objective) const {
+	if (isLabel[lbl] & (1<<objective) ) {
 // 		assert(litClauses[posLit(lbl)].size() == 1);
-		return clauses[litClauses[posLit(lbl)][0]].weight;
+		return clauses[litClauses[posLit(lbl)][0]].weights[objective];
 	}
-	else if(isLabel[lbl] == VAR_FALSE) {
+	else if(isLabel[lbl] & (65536<<objective)) {
 // 		assert(litClauses[negLit(lbl)].size() == 1);
-		return clauses[litClauses[negLit(lbl)][0]].weight;
+		return clauses[litClauses[negLit(lbl)][0]].weights[objective];
 	}
 	else {
 		assert(0);
 	}
 }
 
-ProblemInstance::ProblemInstance(const vector<vector<int> >& clauses_, const vector<uint64_t>& weights_, uint64_t topWeight) : tl(*this) {
-	assert(clauses_.size() == weights_.size());
-	excessVar = 0;
-	
-	int maxVar = 0;
-	
-	clauses.reserve(clauses_.size());
-	for (unsigned i = 0; i < clauses_.size(); i++) {
-		clauses.emplace_back(Clause(clauses_[i], weights_[i]));
+const std::vector<uint64_t>& ProblemInstance::labelLitWeights(int lbl) const {
+	assert(litClauses[lbl].size());
+	assert(clauses[litClauses[lbl][0]].isHard() == false);
+	return clauses[litClauses[lbl][0]].weights;
+}
+
+
+bool ProblemInstance::wDominates(const std::vector<uint64_t>& w1, const std::vector<uint64_t>& w2) const {
+	for (unsigned i=0; i<w2.size(); ++i) {
+		uint64_t a = (i<w1.size() ? w1[i] : 0);
+		uint64_t b = w2[i];
+		if (b > a) return false;
 	}
-	
+	return true;
+}
+
+bool ProblemInstance::wEqual(const std::vector<uint64_t>& w1, const std::vector<uint64_t>& w2) const {
+	for (unsigned i=0, k = max(w1.size(), w2.size()); i<k; ++i) {
+		uint64_t a = (i<w1.size() ? w1[i] : 0);
+		uint64_t b = (i<w2.size() ? w2[i] : 0);
+		if (b != a) return false;
+	}
+	return true;
+}
+
+void ProblemInstance::init(uint64_t topWeight) {
+	int maxVar = 0;
 	for (unsigned i = 0; i < clauses.size(); i++) {
 		for (int lit : clauses[i].lit) {
 			maxVar = max(maxVar, abs(lit) - 1);
 		}
 	}
-	
+
+
 	for (unsigned i = 0; i < clauses.size(); i++) {
 		for (int& lit : clauses[i].lit) {
 			lit=litFromDimacs(lit);
 		}
-		
-		if (clauses[i].weight >= topWeight) clauses[i].weight = HARDWEIGHT;
-		
+
+		for (unsigned j = 0; j < clauses[i].weights.size(); ++j){
+			if (clauses[i].weights[j] >= topWeight) {
+				clauses[i].makeHard();
+				break;
+			}
+		}
+
 		sort(clauses[i].lit.begin(), clauses[i].lit.end());
 		clauses[i].lit.erase(unique(clauses[i].lit.begin(), clauses[i].lit.end()), clauses[i].lit.end());
 		clauses[i].updateHash();
 	}
+
 	vars = maxVar + 1;
-	
+
 	isLabel.resize(vars);
 	litClauses.resize(vars*2);
 	removedClauses.resize(clauses.size());
-	
+
 	tl.init(vars);
-	
+
 	for (unsigned i = 0; i < clauses.size(); i++) {
 		populateLitClauses(i);
 	}
+}
+
+ProblemInstance::ProblemInstance(const vector<vector<int> >& clauses_, const vector<uint64_t> & weights_, uint64_t topWeight) : tl(*this) {
+	assert(clauses_.size() == weights_.size());
+	objectives = 1;
+
+	clauses.reserve(clauses_.size());
+	for (unsigned i = 0; i < clauses_.size(); i++) {
+		if (weights_[i]>=topWeight) {
+			clauses.emplace_back(Clause(clauses_[i], {}));
+		} else {
+			clauses.emplace_back(Clause(clauses_[i], {weights_[i]}));
+		}
+	}
+	init(topWeight);
+}
+
+ProblemInstance::ProblemInstance(const vector<vector<int> >& clauses_, const vector<pair<uint64_t, uint64_t> > & weights_, uint64_t topWeight) : tl(*this) {
+	assert(clauses_.size() == weights_.size());
+	objectives = 2;
+
+	clauses.reserve(clauses_.size());
+	for (unsigned i = 0; i < clauses_.size(); i++) {
+		if (weights_[i].first>=topWeight || weights_[i].second>=topWeight) {
+			clauses.emplace_back(Clause(clauses_[i], {}));
+		} else {
+			clauses.emplace_back(Clause(clauses_[i], {weights_[i].first, weights_[i].second}));
+		}
+	}
+	init(topWeight);
+}
+
+ProblemInstance::ProblemInstance(const vector<vector<int> >& clauses_, const vector<vector<uint64_t> > & weights_, uint64_t topWeight) : tl(*this) {
+	assert(clauses_.size() == weights_.size());
+	objectives = 0;
+
+	clauses.reserve(clauses_.size());
+	for (unsigned i = 0; i < clauses_.size(); i++) {
+		assert(weights_[i].size() <= 16); // AT MOST 16 OBJECTIVES
+		objectives = max(objectives, (int)weights_[i].size());
+		clauses.emplace_back(Clause(clauses_[i], weights_[i]));
+	}
+	init(topWeight);
 }
 
 void ProblemInstance::populateLitClauses(int clause) {
@@ -118,6 +268,28 @@ void ProblemInstance::removeClauseFromLitClause(int clause, int lit) {
 	}
 }
 
+void ProblemInstance::pourAllWeight(int clauseFrom, int clauseTo) {
+	if (clauses[clauseFrom].weights.size()>clauses[clauseTo].weights.size()) clauses[clauseTo].weights.resize(clauses[clauseFrom].weights.size());
+
+	for (unsigned i=0; i<clauses[clauseFrom].weights.size(); ++i) {
+		clauses[clauseTo].weights[i] += clauses[clauseFrom].weights[i];
+		clauses[clauseFrom].weights[i]=0;
+	}
+}
+
+std::vector<uint64_t> ProblemInstance::substractWeights(int clause1, int clause2) {
+	unsigned k = min(clauses[clause1].weights.size(), clauses[clause2].weights.size());
+	std::vector<uint64_t> res(k);
+	for (unsigned i=0; i<k; ++i) {
+		res[i] = min(clauses[clause1].weights[i], clauses[clause2].weights[i]);
+		if (res[i]) {
+			clauses[clause1].weights[i] -= res[i];
+			clauses[clause2].weights[i] -= res[i];
+		}
+	}
+	return res;
+}
+
 void ProblemInstance::removeClauseFromLitClauses(int clause) {
 	for (int lit : clauses[clause].lit) {
 		removeClauseFromLitClause(clause, lit);
@@ -126,21 +298,21 @@ void ProblemInstance::removeClauseFromLitClauses(int clause) {
 
 void ProblemInstance::removeClause(int clause) {
 	assert(removedClauses[clause] == false);
-	
+
 	tl.touchClause(clause);
-	
+
 	removedClauses[clause] = true;
 	removeClauseFromLitClauses(clause);
 }
 
 // Literals in clause should be in sorted order
-void ProblemInstance::addClause(const vector<int>& clause, uint64_t weight) {
+void ProblemInstance::addClause(const vector<int>& clause, const std::vector<uint64_t>& weight) {
 	clauses.push_back(Clause(clause, weight));
 	int cId = clauses.size() - 1;
 	populateLitClauses(cId);
-	
+
 	removedClauses.push_back(0);
-	
+
 	tl.modClause(cId);
 }
 
@@ -206,14 +378,25 @@ int ProblemInstance::getExcessVar() {
 	return excessVar;
 }
 
-uint64_t ProblemInstance::getWeightSum() {
+uint64_t ProblemInstance::getWeightSum(int objective) {
 	uint64_t weightSum = 0;
 	for (int c = 0; c < (int)clauses.size(); c++) {
 		if (!clauses[c].isHard() && !isClauseRemoved(c)) {
-			weightSum += clauses[c].weight;
+			weightSum += clauses[c].weight(objective);
 		}
 	}
 	return weightSum;
+}
+
+std::vector<uint64_t> ProblemInstance::getWeightSums() {
+	std::vector<uint64_t> weightSums(objectives);
+	for (unsigned c = 0, k = clauses.size(); c < k; ++c) {
+		if (clauses[c].isHard() || isClauseRemoved(c)) continue;
+		for (unsigned objective = 0, kk = clauses[c].weights.size(); objective < kk; ++objective) {
+			weightSums[objective] += clauses[c].weights[objective];
+		}
+	}
+	return weightSums;
 }
 
 }

@@ -78,9 +78,17 @@ void Trace::labelEliminate(int lbl1, int lbl2, int tautli) {
 	data.push_back({lbl1, lbl2, tautli});
 }
 
-void Trace::removeWeight(uint64_t weight) {
-	if (weight != HARDWEIGHT) {
-		removedWeight += weight;
+void Trace::removeWeight(uint64_t weight, int objective) {
+	assert(weight != HARDWEIGHT);
+	if ((int)removedWeight.size() <= objective) removedWeight.resize(objective+1);
+	removedWeight[objective] += weight;
+}
+
+void Trace::removeWeight(const std::vector<uint64_t>& weight) {
+	if (weight.size()>removedWeight.size()) removedWeight.resize(weight.size());
+	for (unsigned i=0; i<weight.size(); ++i){
+		assert(weight[i] != HARDWEIGHT);
+		removedWeight[i] += weight[i];
 	}
 }
 
@@ -92,17 +100,17 @@ pair<vector<int>, uint64_t> Trace::getSolution(const vector<int>& trueLits, uint
 			else value[lit - 1] = VAR_TRUE;
 		}
 	}
-	
+
 	for (int i = 0; i < vars; i++) {
 		if (value[i] == VAR_UNDEFINED) {
 			value[i] = VAR_TRUE;
 		}
 	}
-	
+
 	for (int i = (int)operations.size() -1; i >= 0; i--) {
 		if (operations[i] == 1) {
 			assert(data[i][0] < vars);
-			
+
 			if (data[i][1] == true) {
 				value[data[i][0]] = VAR_TRUE;
 			}
@@ -128,7 +136,7 @@ pair<vector<int>, uint64_t> Trace::getSolution(const vector<int>& trueLits, uint
 						if (litValue(data[i][j]) == true) value[litVariable(data[i][j])] = VAR_TRUE;
 						else value[litVariable(data[i][j])] = VAR_FALSE;
 					}
-					if ((litValue(data[i][j]) == true && value[litVariable(data[i][j])] == VAR_TRUE) || 
+					if ((litValue(data[i][j]) == true && value[litVariable(data[i][j])] == VAR_TRUE) ||
 						(litValue(data[i][j]) == false && value[litVariable(data[i][j])] == VAR_FALSE)) {
 						f = true;
 					}
@@ -143,7 +151,7 @@ pair<vector<int>, uint64_t> Trace::getSolution(const vector<int>& trueLits, uint
 					if (litValue(data[i][j]) == true) value[litVariable(data[i][j])] = VAR_TRUE;
 					else value[litVariable(data[i][j])] = VAR_FALSE;
 				}
-				if ((litValue(data[i][j]) == true && value[litVariable(data[i][j])] == VAR_TRUE) || 
+				if ((litValue(data[i][j]) == true && value[litVariable(data[i][j])] == VAR_TRUE) ||
 					(litValue(data[i][j]) == false && value[litVariable(data[i][j])] == VAR_FALSE)) {
 					sat = true;
 					break;
@@ -174,7 +182,7 @@ pair<vector<int>, uint64_t> Trace::getSolution(const vector<int>& trueLits, uint
 						if (litValue(data[i][j]) == true) value[litVariable(data[i][j])] = VAR_TRUE;
 						else value[litVariable(data[i][j])] = VAR_FALSE;
 					}
-					if ((litValue(data[i][j]) == true && value[litVariable(data[i][j])] == VAR_TRUE) || 
+					if ((litValue(data[i][j]) == true && value[litVariable(data[i][j])] == VAR_TRUE) ||
 						(litValue(data[i][j]) == false && value[litVariable(data[i][j])] == VAR_FALSE)) {
 						f = true;
 					}
@@ -217,7 +225,7 @@ pair<vector<int>, uint64_t> Trace::getSolution(const vector<int>& trueLits, uint
 						if (litValue(data[i][j]) == true) value[litVariable(data[i][j])] = VAR_TRUE;
 						else value[litVariable(data[i][j])] = VAR_FALSE;
 					}
-					if ((litValue(data[i][j]) == true && value[litVariable(data[i][j])] == VAR_TRUE) || 
+					if ((litValue(data[i][j]) == true && value[litVariable(data[i][j])] == VAR_TRUE) ||
 						(litValue(data[i][j]) == false && value[litVariable(data[i][j])] == VAR_FALSE)) {
 						sat = true;
 						break;
@@ -267,7 +275,7 @@ pair<vector<int>, uint64_t> Trace::getSolution(const vector<int>& trueLits, uint
 			assert(0);
 		}
 	}
-	
+
 	vector<int> retLit;
 	for (int i = 0; i < originalVars; i++) {
 		if (value[i] == VAR_FALSE) {
@@ -283,6 +291,21 @@ pair<vector<int>, uint64_t> Trace::getSolution(const vector<int>& trueLits, uint
 	return {retLit, weight};
 }
 
+std::vector<int> Trace::getFixed() {
+	std::vector<int> fixed{};
+	for (int i = (int)operations.size() -1; i >= 0; i--) {
+		if (operations[i] == 1) {
+			if (data[i][1] == true) {
+				fixed.push_back(data[i][0]+1);
+			}
+			else {
+				fixed.push_back(-(data[i][0]+1));
+			}
+		}
+	}
+	return fixed;
+}
+
 void Trace::printSolution(ostream& output, const vector<int>& trueLits, uint64_t weight, int vars, int originalVars) {
 	auto solution = getSolution(trueLits, weight, vars, originalVars);
 	output << "v ";
@@ -292,7 +315,7 @@ void Trace::printSolution(ostream& output, const vector<int>& trueLits, uint64_t
 	output << '\n';
 	output << "s OPTIMUM FOUND\n";
 	output << "o " << solution.S << '\n';
-	
+
 	output.flush();
 }
 

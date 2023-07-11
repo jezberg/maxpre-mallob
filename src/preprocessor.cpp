@@ -10,6 +10,7 @@
 #include <sstream>
 #include <stack>
 
+
 #include "preprocessor.hpp"
 #include "trace.hpp"
 #include "global.hpp"
@@ -25,7 +26,7 @@
 using namespace std;
 namespace maxPreprocessor {
 
-Preprocessor::Preprocessor(const vector<vector<int> >& clauses, const vector<uint64_t>& weights, uint64_t topWeight) : pi(clauses, weights, topWeight), satSolver(0), amsLex(pi) {
+void Preprocessor::init() {
 	originalVars = pi.vars;
 	originalClauses = pi.clauses.size();
 	BIGIt = 1;
@@ -39,13 +40,30 @@ Preprocessor::Preprocessor(const vector<vector<int> >& clauses, const vector<uin
 	doneUnhiding = false;
 	randGen.seed(123);
 	flePos = 0;
-	rLog.weightRange = pi.getWeightSum();
+	fleActiveTechniques = 0;
+	rLog.weightRange = pi.getWeightSums();
 	rLog.initialWeightRange = rLog.weightRange;
 
-	stats["original_weight_sum"]=rLog.weightRange;
-	stats["original_clauses"]=clauses.size();
+	for (int i=0; i<pi.objectives; ++i) {
+		stats["original_weight_sum"+std::to_string(i)]=rLog.weightRange[i];
+	}
+	stats["original_clauses"]=pi.clauses.size();
 	stats["original_variables"]=pi.vars;
 }
+
+Preprocessor::Preprocessor(const vector<vector<int> >& clauses, const vector<vector<uint64_t> >& weights, uint64_t topWeight)
+	: pi(clauses, weights, topWeight), satSolver(0), amsLex(pi) {
+		init();
+}
+Preprocessor::Preprocessor(const vector<vector<int> >& clauses, const vector<uint64_t>& weights, uint64_t topWeight)
+	: pi(clauses, weights, topWeight), satSolver(0), amsLex(pi) {
+		init();
+}
+Preprocessor::Preprocessor(const vector<vector<int> >& clauses, const vector<pair<uint64_t, uint64_t> >& weights, uint64_t topWeight)
+	: pi(clauses, weights, topWeight), satSolver(0), amsLex(pi) {
+		init();
+}
+
 
 void Preprocessor::prepareSatSolver() {
 	// For now use always glucose 3... and create it every time...
@@ -103,113 +121,117 @@ void Preprocessor::removeTautologies() {
 }
 
 int Preprocessor::eliminateReduntantLabels() {
-	map<int64_t, map<int, vector<int> > > labels;
-	vector<int> ls;
-	for (int var = 0; var < pi.vars; var++) {
-		if (pi.isLabel[var]) {
-			if (pi.isLabel[var] == VAR_TRUE) {
-				if (pi.litClauses[posLit(var)].size() == 1 && pi.litClauses[negLit(var)].size() == 1) {
-					int c = pi.litClauses[negLit(var)][0];
-					for (int lit : pi.clauses[c].lit) {
-						labels[pi.labelWeight(var)][lit].push_back(posLit(var));
-					}
-					ls.push_back(posLit(var));
-				}
-			}
-			else {
-				if (pi.litClauses[negLit(var)].size() == 1 && pi.litClauses[posLit(var)].size() == 1) {
-					int c = pi.litClauses[posLit(var)][0];
-					for (int lit : pi.clauses[c].lit) {
-						labels[pi.labelWeight(var)][lit].push_back(negLit(var));
-					}
-					ls.push_back(negLit(var));
-				}
-			}
-		}
-	}
-	vector<int> matched(pi.vars);
 	int fnd = 0;
-	//priorize matching ternary clauses
-	for (int lb : ls) {
-		if (matched[litVariable(lb)]) continue;
-		int c = pi.litClauses[litNegation(lb)][0];
-		if (pi.clauses[c].lit.size() != 3) continue;
-		vector<int> lits;
-		for (int lit : pi.clauses[c].lit) {
-			if (!pi.isLitLabel(litNegation(lit))) lits.push_back(litNegation(lit));
-		}
-		if (lits.size() != 2) continue;
-		int tl = lits[0];
-		if (pi.litClauses[lits[1]].size() < pi.litClauses[tl].size()) tl = lits[1];
-		for (int c2 : pi.litClauses[tl]) {
-			if (pi.clauses[c2].lit.size() != 3) continue;
-			int lb2 = -1;
-			vector<int> lits2;
-			for (int lit : pi.clauses[c2].lit) {
-				if (!pi.isLitLabel(litNegation(lit))) lits2.push_back(lit);
-				else lb2 = litNegation(lit);
-			}
-			if (lits2.size() != 2) continue;
-			if (lb2 == -1) continue;
-			if (lb2 == lb) continue;
-			if (pi.labelWeight(litVariable(lb)) != pi.labelWeight(litVariable(lb2))) continue;
-			if (matched[litVariable(lb2)]) continue;
-			if (pi.litClauses[litNegation(lb2)].size() > 1) continue;
-			if ((lits[0] == lits2[0] && lits[1] == lits2[1]) || (lits[1] == lits2[0] && lits[0] == lits2[1])) {
-				fnd++;
-				matched[litVariable(lb)] = 1;
-				matched[litVariable(lb2)] = 1;
-				pi.removeLiteralFromClause(litNegation(lb2), c2);
-				pi.addLiteralToClause(litNegation(lb), c2);
-				pi.removeClause(pi.litClauses[lb2][0]);
-				assert(pi.isVarRemoved(litVariable(lb2)));
-				trace.labelEliminate(lb, lb2, lits2[0]);
-				trace.setVar(litVariable(lb2), litValue(lb2));
-				pi.isLabel[litVariable(lb2)] = VAR_UNDEFINED;
-				break;
+
+	for (int objective=0; objective<pi.objectives; ++objective) {
+		map<int64_t, map<int, vector<int> > > labels;
+		vector<int> ls;
+		for (int var = 0; var < pi.vars; var++) {
+			if (pi.labelIndexMask(var) == (1<<objective)) {
+				if (pi.labelPolarity(var, objective) == VAR_TRUE) {
+					if (pi.litClauses[posLit(var)].size() == 1 && pi.litClauses[negLit(var)].size() == 1) {
+						int c = pi.litClauses[negLit(var)][0];
+						for (int lit : pi.clauses[c].lit) {
+							labels[pi.labelWeight(var, objective)][lit].push_back(posLit(var));
+						}
+						ls.push_back(posLit(var));
+					}
+				}
+				else {
+					if (pi.litClauses[negLit(var)].size() == 1 && pi.litClauses[posLit(var)].size() == 1) {
+						int c = pi.litClauses[posLit(var)][0];
+						for (int lit : pi.clauses[c].lit) {
+							labels[pi.labelWeight(var, objective)][lit].push_back(negLit(var));
+						}
+						ls.push_back(negLit(var));
+					}
+				}
 			}
 		}
-	}
-	//match greedily
-	for (unsigned i = 0; i < ls.size(); i++) {
-		if (matched[litVariable(ls[i])]) continue;
-		int c1 = pi.litClauses[litNegation(ls[i])][0];
-		for (int lit : pi.clauses[c1].lit) {
-			if (pi.isLitLabel(litNegation(lit))) continue;
-			for (int l2 : labels[pi.labelWeight(litVariable(ls[i]))][litNegation(lit)]) {
-				if (matched[litVariable(l2)]) continue;
-				int c2 = pi.litClauses[litNegation(l2)][0];
-				bool taut = false;
-				int tautli = 0;
-				unsigned j2 = 0;
-				for (unsigned j = 0; j < pi.clauses[c1].lit.size(); j++) {
-					while (j2 < pi.clauses[c2].lit.size() && pi.clauses[c2].lit[j2] < pi.clauses[c1].lit[j]) {
-						if (pi.clauses[c2].lit[j2] == litNegation(pi.clauses[c1].lit[j])) {
+		vector<int> matched(pi.vars);
+		//priorize matching ternary clauses
+		for (int lb : ls) {
+			if (matched[litVariable(lb)]) continue;
+			int c = pi.litClauses[litNegation(lb)][0];
+			if (pi.clauses[c].lit.size() != 3) continue;
+			vector<int> lits;
+			for (int lit : pi.clauses[c].lit) {
+				if (!pi.isLabelVar(litVariable(lit))) lits.push_back(litNegation(lit));
+			}
+			if (lits.size() != 2) continue;
+			int tl = lits[0];
+			if (pi.litClauses[lits[1]].size() < pi.litClauses[tl].size()) tl = lits[1];
+			for (int c2 : pi.litClauses[tl]) {
+				if (pi.clauses[c2].lit.size() != 3) continue;
+				int lb2 = -1;
+				vector<int> lits2;
+				for (int lit : pi.clauses[c2].lit) {
+					if (!pi.isLabelVar(litVariable(lit))) lits2.push_back(lit);
+					else if (pi.labelIndexMask(lit) != (1<<objective)) break;
+					else lb2 = litNegation(lit);
+				}
+				if (lits2.size() != 2) continue;
+				if (lb2 == -1) continue;
+				if (lb2 == lb) continue;
+				if (pi.labelWeight(litVariable(lb), objective) != pi.labelWeight(litVariable(lb2), objective)) continue;
+				if (matched[litVariable(lb2)]) continue;
+				if (pi.litClauses[litNegation(lb2)].size() > 1) continue;
+				if ((lits[0] == lits2[0] && lits[1] == lits2[1]) || (lits[1] == lits2[0] && lits[0] == lits2[1])) {
+					fnd++;
+					matched[litVariable(lb)] = 1;
+					matched[litVariable(lb2)] = 1;
+					pi.removeLiteralFromClause(litNegation(lb2), c2);
+					pi.addLiteralToClause(litNegation(lb), c2);
+					pi.removeClause(pi.litClauses[lb2][0]);
+					assert(pi.isVarRemoved(litVariable(lb2)));
+					trace.labelEliminate(lb, lb2, lits2[0]);
+					trace.setVar(litVariable(lb2), litValue(lb2));
+					pi.unLabel(litVariable(lb2), objective);
+					break;
+				}
+			}
+		}
+		//match greedily
+		for (unsigned i = 0; i < ls.size(); i++) {
+			if (matched[litVariable(ls[i])]) continue;
+			int c1 = pi.litClauses[litNegation(ls[i])][0];
+			for (int lit : pi.clauses[c1].lit) {
+				if (lit == litNegation(ls[i])) continue;
+				for (int l2 : labels[pi.labelWeight(litVariable(ls[i]), objective)][litNegation(lit)]) {
+					if (matched[litVariable(l2)]) continue;
+					int c2 = pi.litClauses[litNegation(l2)][0];
+					bool taut = false;
+					int tautli = 0;
+					unsigned j2 = 0;
+					for (unsigned j = 0; j < pi.clauses[c1].lit.size(); j++) {
+						while (j2 < pi.clauses[c2].lit.size() && pi.clauses[c2].lit[j2] < pi.clauses[c1].lit[j]) {
+							if (pi.clauses[c2].lit[j2] == litNegation(pi.clauses[c1].lit[j])) {
+								tautli = pi.clauses[c2].lit[j2];
+								taut = true;
+							}
+							j2++;
+						}
+						if (j2 < pi.clauses[c2].lit.size() && pi.clauses[c2].lit[j2] == litNegation(pi.clauses[c1].lit[j])) {
 							tautli = pi.clauses[c2].lit[j2];
 							taut = true;
 						}
-						j2++;
+						if (taut) break;
 					}
-					if (j2 < pi.clauses[c2].lit.size() && pi.clauses[c2].lit[j2] == litNegation(pi.clauses[c1].lit[j])) {
-						tautli = pi.clauses[c2].lit[j2];
-						taut = true;
-					}
-					if (taut) break;
+					assert(taut == true);
+					fnd++;
+					matched[litVariable(ls[i])] = 1;
+					matched[litVariable(l2)] = 1;
+					pi.removeLiteralFromClause(litNegation(l2), c2);
+					pi.addLiteralToClause(litNegation(ls[i]), c2);
+					pi.removeClause(pi.litClauses[l2][0]);
+					assert(pi.isVarRemoved(litVariable(l2)));
+					trace.labelEliminate(ls[i], l2, tautli);
+					trace.setVar(litVariable(l2), litValue(l2));
+					pi.unLabel(litVariable(l2), objective);
+					break;
 				}
-				assert(taut == true);
-				fnd++;
-				matched[litVariable(ls[i])] = 1;
-				matched[litVariable(l2)] = 1;
-				pi.removeLiteralFromClause(litNegation(l2), c2);
-				pi.addLiteralToClause(litNegation(ls[i]), c2);
-				pi.removeClause(pi.litClauses[l2][0]);
-				assert(pi.isVarRemoved(litVariable(l2)));
-				trace.labelEliminate(ls[i], l2, tautli);
-				trace.setVar(litVariable(l2), litValue(l2));
-				pi.isLabel[litVariable(l2)] = VAR_UNDEFINED;
-				break;
+				if (matched[litVariable(ls[i])]) break;
 			}
-			if (matched[litVariable(ls[i])]) break;
 		}
 	}
 	return fnd;
@@ -222,7 +244,7 @@ void Preprocessor::identifyLabels() {
 
 	// Find unit soft clauses where the negation of the literal occurs only in hard clauses
 	for (int lit = 0; lit < pi.vars*2; lit++) {
-		if (pi.isLabel[litVariable(lit)]) continue;
+		// if (pi.isLabelVar(litVariable(lit))) continue;
 // 		if (pi.litClauses[lit].size()>1) continue;
 		bool f = false;
 		vector<int> toRemove;
@@ -233,8 +255,7 @@ void Preprocessor::identifyLabels() {
 					f = true;
 					swap(pi.litClauses[lit][i], pi.litClauses[lit][0]);
 				} else {
-					pi.clauses[pi.litClauses[lit][0]].weight += pi.clauses[c].weight;
-					pi.clauses[c].weight = 0;
+					pi.pourAllWeight(c, pi.litClauses[lit][0]);
 					toRemove.push_back(c);
 				}
 			}
@@ -244,14 +265,14 @@ void Preprocessor::identifyLabels() {
 		f = false;
 		for (int c : pi.litClauses[litNegation(lit)]) {
 			if (!pi.clauses[c].isHard() && pi.clauses[c].lit.size() == 1) {
-				uint64_t minw = min(pi.clauses[pi.litClauses[lit][0]].weight, pi.clauses[c].weight);
-				trace.removeWeight(minw);
-				pi.clauses[pi.litClauses[lit][0]].weight-=minw;
-				pi.clauses[c].weight-=minw;
-				if (pi.clauses[c].weight==0) {
+				trace.removeWeight(pi.substractWeights(c, pi.litClauses[lit][0]));
+
+
+				if (pi.clauses[c].isWeightless()) {
 					toRemove.push_back(c);
 				}
-				if (pi.clauses[pi.litClauses[lit][0]].weight==0) {
+
+				if (pi.clauses[pi.litClauses[lit][0]].isWeightless()) {
 					toRemove.push_back(pi.litClauses[lit][0]);
 					f = true;
 					break;
@@ -265,9 +286,15 @@ void Preprocessor::identifyLabels() {
 		if (f) continue;
 
 		if (litValue(lit) == true) {
-			pi.isLabel[litVariable(lit)] = VAR_TRUE;
+			for (int objective=0; objective<pi.objectives; ++objective) {
+				if (pi.clauses[pi.litClauses[lit][0]].weight(objective))
+					pi.mkLabel(litVariable(lit), objective, VAR_TRUE);
+			}
 		} else {
-			pi.isLabel[litVariable(lit)] = VAR_FALSE;
+			for (int objective=0; objective<pi.objectives; ++objective) {
+				if (pi.clauses[pi.litClauses[lit][0]].weight(objective))
+					pi.mkLabel(litVariable(lit), objective, VAR_FALSE);
+			}
 		}
 		found++;
 	}
@@ -285,9 +312,12 @@ void Preprocessor::createLabels() {
 		if (!pi.clauses[i].isHard() && !pi.isClauseRemoved(i) && !pi.isLabelClause(i)) {
 			int nv = pi.addVar();
 			pi.addLiteralToClause(posLit(nv), i);
-			pi.addClause({negLit(nv)}, pi.clauses[i].weight);
-			pi.isLabel[nv] = VAR_FALSE;
-			pi.clauses[i].weight = HARDWEIGHT;
+			pi.addClause({negLit(nv)}, pi.clauses[i].weights);
+			for (int objective=0; objective<pi.objectives; ++objective) {
+				if (pi.clauses[i].weight(objective))
+					pi.mkLabel(nv, objective, VAR_FALSE);
+			}
+			pi.clauses[i].makeHard();
 			added++;
 		}
 	}
@@ -311,7 +341,7 @@ int Preprocessor::removeEmptyClauses() {
 		}
 	}
 	for (int c : src) {
-		trace.removeWeight(pi.clauses[c].weight);
+		trace.removeWeight(pi.clauses[c].weights);
 		pi.removeClause(c);
 		removed++;
 	}
@@ -322,10 +352,9 @@ int Preprocessor::removeEmptyClauses() {
 int Preprocessor::tryUP(int lit) {
 	for (int c : pi.litClauses[lit]) {
 		if (pi.clauses[c].lit.size() == 1 && pi.clauses[c].isHard()) {
-			if (pi.isLabel[litVariable(lit)] != VAR_UNDEFINED) {
+			if (pi.isLabelVar(litVariable(lit))) {
 				rLog.removeLabel(1);
-			}
-			else {
+			}	else {
 				rLog.removeVariable(1);
 			}
 			int rmClauses = setVariable(litVariable(lit), litValue(lit));
@@ -341,10 +370,9 @@ int Preprocessor::tryUPAll() {
 	for (unsigned c = 0; c < pi.clauses.size(); c++) {
 		if (pi.clauses[c].lit.size() == 1 && pi.clauses[c].isHard() && !pi.isClauseRemoved(c)) {
 			int lit = pi.clauses[c].lit[0];
-			if (pi.isLabel[litVariable(lit)] != VAR_UNDEFINED) {
+			if (pi.isLabelVar(litVariable(lit))) {
 				rLog.removeLabel(1);
-			}
-			else {
+			}	else {
 				rLog.removeVariable(1);
 			}
 			int rmClauses = setVariable(litVariable(lit), litValue(lit));
@@ -396,7 +424,7 @@ int Preprocessor::removeDuplicateClauses() {
 			if (!pi.isClauseRemoved(c)) {
 				if (pi.clauses[c].lit.size() == 0) {
 					if (!pi.clauses[c].isHard()) {
-						trace.removeWeight(pi.clauses[c].weight);
+						trace.removeWeight(pi.clauses[c].weights);
 						pi.removeClause(c);
 					}
 				}
@@ -430,14 +458,13 @@ int Preprocessor::removeDuplicateClauses() {
 				hard = true;
 				toRemove.push_back(has[i-1].S);
 			} else {
-				pi.clauses[has[i].S].weight += pi.clauses[has[i-1].S].weight;
-				pi.clauses[has[i-1].S].weight = 0;
+				pi.pourAllWeight(has[i-1].S, has[i].S);
 				toRemove.push_back(has[i-1].S);
 			}
 		}
 		for (int c : toRemove) assert(!pi.isClauseRemoved(c));
 		for (int c : toRemove) {
-			if (pi.isLabelClause(c)) { // since after labelling there is not duplicate softs, this implies we have unit hard clause and we can harden it
+			if (pi.isLabelClause(c)) { // since after labelling there are no duplicate softs, this implies we have a unit hard clause and we can harden it
 				removed += setVariable(litVariable(pi.clauses[c].lit[0]), litValue(pi.clauses[c].lit[0]));
 			} else if (!pi.isClauseRemoved(c)) { // hardening can remove some clauses marked as to remove...
 				removed++;
@@ -476,8 +503,7 @@ int Preprocessor::removeDuplicateClauses() {
 					hard = true;
 					toRemove.push_back(has[i-1].S);
 				} else {
-					pi.clauses[has[i].S].weight += pi.clauses[has[i-1].S].weight;
-					pi.clauses[has[i-1].S].weight = 0;
+					pi.pourAllWeight(has[i-1].S, has[i].S);
 					toRemove.push_back(has[i-1].S);
 				}
 			}
@@ -515,59 +541,62 @@ int Preprocessor::removeDuplicateClauses() {
 #include "HARD.cpp"
 #include "FLE.cpp"
 
-PreprocessedInstance Preprocessor::getPreprocessedInstance() {
+PreprocessedInstance Preprocessor::getPreprocessedInstance(bool addRemovedWeight, bool sortLabelsFrequency) {
 	PreprocessedInstance ret;
 	for (unsigned i = 0; i < pi.clauses.size(); i++) {
 		if (!pi.isClauseRemoved(i) && pi.clauses[i].isHard()) {
 			ret.clauses.push_back(pi.clauses[i].lit);
-			ret.weights.push_back(pi.clauses[i].weight);
+			if (pi.objectives>1) ret.weightsv.push_back({});
+			else                 ret.weights.push_back(HARDWEIGHT);
 		}
 	}
 	for (int var = 0; var < pi.vars; var++) {
 		if (pi.litClauses[posLit(var)].size() > 0 || pi.litClauses[negLit(var)].size() > 0) {
-			if (pi.isLabel[var] == VAR_TRUE) {
-				if (pi.litClauses[negLit(var)].size() == 0) {
-					trace.setVar(var, true);
-				}
-				else {
+			if (pi.litClauses[negLit(var)].size() == 0) {
+				trace.setVar(var, true);
+			} else if (pi.litClauses[posLit(var)].size() == 0) {
+				trace.setVar(var, false);
+			} else {
+				if (pi.isLitLabel(posLit(var))) {
 					assert(pi.clauses[pi.litClauses[posLit(var)][0]].lit.size() == 1);
 					assert(!pi.clauses[pi.litClauses[posLit(var)][0]].isHard());
-					ret.labels.push_back({posLit(var), pi.clauses[pi.litClauses[posLit(var)][0]].weight});
+					ret.labels.push_back({posLit(var), pi.clauses[pi.litClauses[posLit(var)][0]].weights});
 				}
-			}
-			else if(pi.isLabel[var] == VAR_FALSE) {
-				if (pi.litClauses[posLit(var)].size() == 0) {
-					trace.setVar(var, false);
-				}
-				else {
+				if (pi.isLitLabel(negLit(var))) {
 					assert(pi.clauses[pi.litClauses[negLit(var)][0]].lit.size() == 1);
 					assert(!pi.clauses[pi.litClauses[negLit(var)][0]].isHard());
-					ret.labels.push_back({negLit(var), pi.clauses[pi.litClauses[negLit(var)][0]].weight});
+					ret.labels.push_back({negLit(var), pi.clauses[pi.litClauses[negLit(var)][0]].weights});
 				}
 			}
 		}
 	}
-	if (trace.removedWeight > 0) {
-		int nVar = pi.getExcessVar();
-		ret.labels.push_back({negLit(nVar), trace.removedWeight});
-		ret.clauses.push_back({posLit(nVar)});
-		ret.weights.push_back(HARDWEIGHT);
+
+	if (addRemovedWeight && trace.removedWeight.size()) {
+	 	int nVar = pi.getExcessVar();
+	 	ret.labels.push_back({negLit(nVar), trace.removedWeight});
+	 	ret.clauses.push_back({posLit(nVar)});
+	 	if (pi.objectives>1) ret.weightsv.push_back({});
+	 	else                 ret.weights.push_back(HARDWEIGHT);
 	}
-	auto cmp = [&](pair<int, uint64_t> a, pair<int, uint64_t> b) {
-		if (litVariable(a.F) >= pi.vars || litVariable(b.F) >= pi.vars) return a.F > b.F;
-		return pi.litClauses[a.F].size() + pi.litClauses[litNegation(a.F)].size() > pi.litClauses[b.F].size() + pi.litClauses[litNegation(b.F)].size();
-	};
-	sort(ret.labels.begin(), ret.labels.end(), cmp);
+
+	if (sortLabelsFrequency) {
+		auto cmp = [&](const pair<int, vector<uint64_t> >& a, const pair<int, vector<uint64_t> >&	 b) {
+			if (litVariable(a.F) >= pi.vars || litVariable(b.F) >= pi.vars) return a.F > b.F;
+			return pi.litClauses[a.F].size() + pi.litClauses[litNegation(a.F)].size() > pi.litClauses[b.F].size() + pi.litClauses[litNegation(b.F)].size();
+		};
+		sort(ret.labels.begin(), ret.labels.end(), cmp);
+	}
 	for (int i = 0; i < (int)ret.labels.size(); i++) {
 		ret.clauses.push_back({ret.labels[i].F});
-		ret.weights.push_back(ret.labels[i].S);
+		if (pi.objectives>1) ret.weightsv.push_back(ret.labels[i].S);
+		else                 ret.weights.push_back(ret.labels[i].S[0]);
 	}
 	return ret;
 }
 
 bool Preprocessor::validTechniques(string techniques) const {
 	int sb = 0;
-	string vt = "buvsrilceagphtmGSQTVdDMLHUR";
+	string vt = "buvsrilceagphtmGSQTVdDMLHURP";
 	for (int i = 0; i < (int)techniques.size(); i++) {
 		if(techniques[i] == '[') {
 			sb++;
@@ -744,10 +773,10 @@ int Preprocessor::doPreprocess(const string& techniques, int l, int r, bool debu
 			found += doHARD();
 		}
 		else if (tc == 'U') {
-			found += doFLE(0,1,0,1,0);
+			found += doFLE(0,1,0,1,0,0);
 		}
 		else if (tc == 'R') {
-			found += doFLE(1,1,1,1,1);
+			found += doFLE(1,1,1,1,1,opt.FLE_redTechniques);
 		}
 		else {
 			abort();
@@ -881,7 +910,7 @@ void Preprocessor::preprocess(string techniques, double timeLimit, bool debug, b
 	dpRm = removeDuplicateClauses();
 	log(dpRm, " duplicate clauses removed");
 
-	rLog.weightRange = pi.getWeightSum();
+	rLog.weightRange = pi.getWeightSums();
 
 	int clauses=0;
 	for (unsigned i=0; i<pi.clauses.size(); ++i) {
@@ -891,7 +920,9 @@ void Preprocessor::preprocess(string techniques, double timeLimit, bool debug, b
 	for (int i=0; i< pi.vars;++i) {
 		if (!pi.isVarRemoved(i)) ++vars;
 	}
-	stats["final_weight_sum"]=rLog.weightRange;
+	for (int i=0; i<pi.objectives; ++i) {
+		stats["final_weight_sum"+std::to_string(i)]=rLog.weightRange[i];
+	}
 	stats["final_clauses"]=clauses;
 	stats["final_variables"]=vars;
 }
@@ -899,7 +930,7 @@ void Preprocessor::preprocess(string techniques, double timeLimit, bool debug, b
 std::string Preprocessor::version(int l) {
 	std::stringstream vs;
 	if (l&1) vs << "MaxPRE ";
-	vs << "2.0.3";
+	vs << "2.1.0";
 	if (l&2) vs << " (" << GIT_IDENTIFIER << ", " << __DATE__ << " " << __TIME__ << ")";
 	return vs.str();
 }

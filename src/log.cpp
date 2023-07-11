@@ -29,8 +29,6 @@ Log::Log() {
 	labelsMatched = 0;
 	binaryCoresFound = 0;
 	toReallocate = 0;
-	initialWeightRange = 0;
-	weightRange = 0;
 }
 
 void Log::startTechnique(Technique t) {
@@ -152,8 +150,12 @@ void Log::printInfo(ostream& out) {
 	out<<"c Labels matched "<<labelsMatched<<'\n';
 	out<<"c Gates extracted "<<gatesExtracted<<'\n';
 	out<<"c Binary cores found "<<binaryCoresFound<<'\n';
-	out<<"c Original weight range "<<initialWeightRange<<'\n';
-	out<<"c Preprocessed weight range "<<weightRange<<'\n';
+	out<<"c Original weight range [";
+	for (int i=0; i<(int)initialWeightRange.size(); ++i) { out << (i?", ":"") << initialWeightRange[i];}
+	out << "]\n";
+	out<<"c {Preprocessed weight range [";
+	for (int i=0; i<(int)weightRange.size(); ++i) { out << (i?", ":"") << weightRange[i];}
+	out << "]\n";
 	out.flush();
 }
 

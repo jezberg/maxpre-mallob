@@ -7,10 +7,10 @@
 #include <vector>
 using namespace std;
 
-	
+
 namespace SatlikeInterface {
 	// do satlike search, return true if solution is found and if solution is found, the model is in best_solution
-	bool do_search(const maxPreprocessor::ProblemInstance& pi, const vector<bool>& initial_solution, vector<bool>& best_solution, double timeLimit);
+	bool do_search(const maxPreprocessor::ProblemInstance& pi, const vector<bool>& initial_solution, vector<bool>& best_solution, double timeLimit, int objective = 0);
 };
 
 #endif

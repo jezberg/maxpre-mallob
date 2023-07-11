@@ -6,14 +6,14 @@ bool Preprocessor::checkPositiveReduct(const vector<int>& clause, const vector<i
 	// returns true if clause doesn't affect the satisfiability of the formula
 	// and any satisfying assignment of the formula \ clause can be turned to satisfy formula + clause by flipping the literals in the clause
 	// which means that if the clause doesn't contain any labels, it can be either added or removed from the formula preserving the cost
-	
+
 	// vector labels contains ''extra'' labels that could be added to clause but which are allowed only to be in one polarity
 	// in some cases this may reduce the number of clauses added to the solver possibly making the formula easier and even change result from UNSAT to SAT
-	
-	
+
+
 	// TODO: don't always initialize a new sat solver...
 	SATSolver* solver = (SATSolver*)new Glucose3();
-	
+
 	// find clauses satisfied by negations of literals in clause
 	vector<int> cls;
 	for (int l : clause) {
@@ -25,7 +25,7 @@ bool Preprocessor::checkPositiveReduct(const vector<int>& clause, const vector<i
 	}
 	sort(cls.begin(), cls.end());
 	cls.erase(unique(cls.begin(), cls.end()), cls.end());
-	
+
 	// check if some clauses can be removed
 	vector<int> assumptions;
 	for (int l : labels) {
@@ -42,7 +42,7 @@ bool Preprocessor::checkPositiveReduct(const vector<int>& clause, const vector<i
 		if (ok) assumptions.push_back(pi.isLitLabel(l) ? l : litNegation(l));
 	}
 	sort(assumptions.begin(), assumptions.end());
-	
+
 	// add touched versions of clauses
 	for (int c : cls) {
 		vector<int> tcl;
@@ -58,9 +58,9 @@ bool Preprocessor::checkPositiveReduct(const vector<int>& clause, const vector<i
 		}
 		if (!skip) solver->addClause(tcl);
 	}
-	
+
 	solver->addClause(clause);
-	
+
 	int sat = solver->solveLimited(rLog.allocatedTimeLeft(rLog.activeTechnique));
 	delete solver;
 	++redSatSolverCalls;
@@ -81,48 +81,58 @@ bool Preprocessor::checkPositiveReduct(const vector<int>& clause, const vector<i
 }
 
 
-bool Preprocessor::checkExtendedPositiveReduct(const vector<int>& clause_, const vector<int>& labels) { // assumes literals are sorted...
+bool Preprocessor::checkExtendedPositiveReduct(const vector<int>& clause_, const vector<int>& labels, const vector<int>& eqs) { // assumes literals are sorted...
 	// returns true if clause doesn't affect the satisfiability of the formula
 	// and any satisfying assignment of the formula \ clause can be turned to satisfy formula + clause by flipping the literals in the clause
 	// which means that if the clause doesn't contain any labels, it can be either added or removed from the formula preserving the cost
-	
+
 	// vector labels contains ''extra'' labels that could be added to clause but which are allowed only to be in one polarity
 	// in some cases this may reduce the number of clauses added to the solver possibly making the formula easier and even change result from UNSAT to SAT
-	
+
 	// Extend clause by UP
-	vector<int> alpha;
-	alpha.resize(clause_.size());
-	for (unsigned i=0; i<clause_.size();++i) {
-		alpha[i]=litNegation(clause_[i]);
+
+	vector<int> alpha(clause_);
+	for (int& lit : alpha) {
+		lit = litNegation(lit);
 	}
+
 	vector<int> up;
-	bool s = satSolver->propagate(alpha, up, 2);
-	if (!s) {
+	if (!satSolver->propagate(alpha, up)) {
 		return true;
 	}
-	vector<int> clause;
-	for (int l : clause_) clause.push_back(l);
-	for (unsigned i=0; i<up.size(); ++i) {
-		if (!pi.isLabel[litVariable(up[i])] && !binary_search(clause_.begin(), clause_.end(), up[i])) {
-			clause.push_back(litNegation(up[i]));
+	vector<int> clause(up);
+	int toRemove = 0;
+	for (int& l : clause) {
+		if (!pi.isLabelVar(litVariable(l)) && !pi.isVarRemoved(litVariable(l))) {
+			l = litNegation(l);
+		} else {
+			// after sorting those to be removed will be in the end
+			l=posLit(pi.vars+1);
+			++toRemove;
 		}
 	}
 	sort(clause.begin(), clause.end());
-	return checkFilteredPositiveReduct(clause, labels);
+	clause.resize(clause.size()-toRemove);
+
+	if (checkFilteredPositiveReduct(clause, labels, eqs)) {
+		return 1;
+	} else {
+		return 0;
+	}
 }
 
 
-bool Preprocessor::checkFilteredPositiveReduct(vector<int>& clause, const vector<int>& labels, bool f2) { // assumes literals are sorted...
+bool Preprocessor::checkFilteredPositiveReduct(vector<int>& clause, const vector<int>& labels, const vector<int>& eqs, bool f2) { // assumes literals are sorted...
 	// returns true if clause doesn't affect the satisfiability of the formula
 	// and any satisfying assignment of the formula \ clause can be turned to satisfy formula + clause by flipping the literals in the clause
 	// which means that if the clause doesn't contain any labels, it can be either added or removed from the formula preserving the cost
-	
+
 	// vector labels contains ''extra'' labels that could be added to clause but which are allowed only to be in one polarity
 	// in some cases this may reduce the number of clauses added to the solver possibly making the formula easier and even change result from UNSAT to SAT
-	
+
 	// TODO: don't always initialize a new sat solver...
 	SATSolver* solver = (SATSolver*)new Glucose3();
-	
+
 	// find clauses satisfied by negations of literals in clause
 	vector<int> cls;
 	for (int l : clause) {
@@ -134,16 +144,16 @@ bool Preprocessor::checkFilteredPositiveReduct(vector<int>& clause, const vector
 	}
 	sort(cls.begin(), cls.end());
 	cls.erase(unique(cls.begin(), cls.end()), cls.end());
-	
-	vector<int> alpha;
-	alpha.resize(clause.size());
-	for (unsigned i=0; i<clause.size();++i) {
-		alpha[i]=litNegation(clause[i]);
+
+	vector<int> alpha(clause);
+	for (int& lit : alpha) {
+		lit = litNegation(lit);
 	}
+
 	vector<int> up;
-	satSolver->propagate(alpha, up, 2);
+	satSolver->propagate(alpha, up);
 	sort(up.begin(), up.end());
-	
+
 	if (f2) {
 		for (int l : up) {
 			if (binary_search(clause.begin(), clause.end(), litNegation(l))) continue;
@@ -158,8 +168,9 @@ bool Preprocessor::checkFilteredPositiveReduct(vector<int>& clause, const vector
 				clause.push_back(l);
 			}
 		}
+		sort(clause.begin(), clause.end());
 	}
-	
+
 	// check if some clauses can be removed
 	vector<int> assumptions;
 	for (int l : labels) {
@@ -176,28 +187,92 @@ bool Preprocessor::checkFilteredPositiveReduct(vector<int>& clause, const vector
 		if (ok) assumptions.push_back(pi.isLitLabel(l) ? l : litNegation(l));
 	}
 	sort(assumptions.begin(), assumptions.end());
-	
+
 	// add touched versions of clauses
+	unsigned asz = alpha.size();
+
+
+	set<int> satLits;
 	for (int c : cls) {
 		vector<int> tcl;
 		bool skip = 0;
 		for (int l : pi.clauses[c].lit) {
 			if (binary_search(clause.begin(), clause.end(), litNegation(l)) || binary_search(clause.begin(), clause.end(), l)) {
-				tcl.push_back(l);
+				if (satLits.count(l)) {
+					// unit clause satisfying this clause already added to solver
+					skip = 1;
+					break;
+				} else if (!satLits.count(litNegation(l))) {
+					tcl.push_back(l);
+				}
 			} else if (binary_search(up.begin(), up.end(), l)) {
+				// can be filtered trivially
 				skip=1;
 				break;
+			} else {
+				alpha.push_back(litNegation(l));
 			}
+
 			if (binary_search(assumptions.begin(), assumptions.end(), l)) {
 				skip=1;
 				break;
 			}
 		}
-		if (!skip) solver->addClause(tcl);
+		if (!skip) {
+			if (!satSolver->testUPConflict(alpha)) {
+				// untouched(clause) propagates conflict, clause can be filtered
+			} else {
+				solver->addClause(tcl);
+				if (tcl.size()==1) satLits.insert(tcl[0]);
+				if (tcl.size()==0) break;
+			}
+		}
+		alpha.resize(asz);
 	}
-	
+	if (eqs.size()>1) {
+		// vector of equal literals that are not necessarily implied by current pi.clauses, but should anyways be taken into account
+		// (FLE may have this situation when Filtered positive reduct check is called from FLE)
+		int l1 = eqs[0];
+		bool hl1 = binary_search(clause.begin(), clause.end(), l1);
+		bool hnl1 = binary_search(clause.begin(), clause.end(), litNegation(l1));
+		for (unsigned i=1; i<eqs.size(); ++i) {
+			int l2 = eqs[i];
+			bool hl2 = binary_search(clause.begin(), clause.end(), l2);
+			bool hnl2 = binary_search(clause.begin(), clause.end(), litNegation(l2));
+
+			// assume clauses {neg(l1), l2}
+			if (hl1) {
+				vector<int> cl = {litNegation(l1)};
+				if (hl2 || hnl2) {
+					cl.push_back(l2);
+				}
+				solver->addClause(cl);
+			} else if (hnl2) {
+				vector<int> cl = {l2};
+				if (hnl1) {
+					cl.push_back(litNegation(l1));
+				}
+				solver->addClause(cl);
+			}
+			// assume clause {l1, neg(l2)}
+			if (hnl1) {
+				vector<int> cl = {l1};
+				if (hl2 || hnl2) {
+					cl.push_back(litNegation(l2));
+				}
+				solver->addClause(cl);
+			} else if (hl2) {
+				vector<int> cl = {litNegation(l2)};
+				if (hl1) {
+					cl.push_back(l1);
+				}
+				solver->addClause(cl);
+			}
+		}
+	}
+
 	solver->addClause(clause);
-	
+
 	int sat = solver->solveLimited(rLog.allocatedTimeLeft(rLog.activeTechnique));
 	delete solver;
 	++redSatSolverCalls;
@@ -222,7 +297,8 @@ bool Preprocessor::checkTrimmedFilteredPositiveReduct(const vector<int>& clause_
 	vector<int> clause(clause_);
 	int removed = trimReductClause(clause);
 	rLog.removeClause(removed);
-	return checkFilteredPositiveReduct(clause, labels, f2);
+	vector<int> eqs;
+	return checkFilteredPositiveReduct(clause, labels, eqs, f2);
 }
 
 
@@ -235,7 +311,7 @@ int Preprocessor::trimReductClause(vector<int>& clause) {
 		if (toRemove.count(l)) continue;
 		vector<int> a={litNegation(l)};
 		vector<int> c;
-		bool s = satSolver->propagate(a, c, 2);
+		bool s = satSolver->propagate(a, c);
 		if (s) {
 			for (int lit : c) {
 				if (litNegation(lit)!=l && binary_search(clause.begin(), clause.end(), litNegation(lit))) {
@@ -244,12 +320,11 @@ int Preprocessor::trimReductClause(vector<int>& clause) {
 			}
 		} else{
 			clause.clear();
-			vector<int> cl={l};
-			satSolver->addClause(cl);
+			satSolver->addClause(l);
 			return setVariable(litVariable(l), litValue(l));
 		}
 	}
-	
+
 	int jj=0;
 	for (unsigned j=0;j<clause.size();++j) {
 		if (!toRemove.count(clause[j])) {
@@ -257,7 +332,7 @@ int Preprocessor::trimReductClause(vector<int>& clause) {
 		}
 	}
 	clause.resize(jj);
-	
+
 	return 0;
 }
 
@@ -293,11 +368,11 @@ int Preprocessor::findREDPartitionForLit(int lit, unsigned n, vector<pair<vector
 	// if succeeded, on clauses there will be n pairs: <clause, labels>, clause containt the literals, assumptions contains labels that may be useful when checking redundancy
 	// clauses may contain labels, that have at most cost mcost (should be labelWeight(litVariable[lit]), if lit is label, 0 otherwise).
 	if (pi.litClauses[litNegation(lit)].size() < n) return 0;
-	
-	
+
+
 	vector<int> cl(pi.litClauses[litNegation(lit)]);
-	
-	
+
+
 	clauses.resize(n);
 	unsigned theoretically_best = 0;
 	uint64_t cost=0;
@@ -320,17 +395,17 @@ int Preprocessor::findREDPartitionForLit(int lit, unsigned n, vector<pair<vector
 			theoretically_best = bstd;
 			swap(cl[i], cl[j]);
 		}
-		
+
 		int c=cl[i];
-		
+
 		vector<pair<uint64_t, int> >& clause = clauses[i].F;
 		vector<int>& labels = clauses[i].S;
 		uint64_t a=HARDWEIGHT, b=HARDWEIGHT;
 		for (int l : pi.clauses[c].lit) {
 			if (l==litNegation(lit)) continue;
-			if (pi.isLabel[litVariable(l)]) {
-				if (pi.labelWeight(litVariable(l)) <= mcost) {
-					uint64_t w=pi.labelWeight(litVariable(l));
+			if (pi.isLabelVar(litVariable(l))) {
+				if (pi.labelWeight(litVariable(l), 0) <= mcost) {
+					uint64_t w=pi.labelWeight(litVariable(l), 0);
 					clause.push_back({w, l});
 					if (w<b) {
 						b=w;
@@ -347,9 +422,9 @@ int Preprocessor::findREDPartitionForLit(int lit, unsigned n, vector<pair<vector
 		cost += a+b;
 		if (cost>mcost) return 0;
 	}
-	
+
 	for (unsigned ii=n; ii<cl.size(); ++ii) {
-		int i=0; 
+		int i=0;
 		int bstd=0;
 		for (unsigned jj=0;jj<n;++jj) {
 			int d=hasMoreInCommon(pi.clauses[cl[ii]].lit, pi.clauses[cl[jj]].lit, bstd);
@@ -360,9 +435,9 @@ int Preprocessor::findREDPartitionForLit(int lit, unsigned n, vector<pair<vector
 		}
 		vector<pair<uint64_t, int> >& clause = clauses[i].F;
 		vector<int>& labels = clauses[i].S;
-		
+
 		int c = cl[ii];
-		
+
 		int jj=0;
 		uint64_t ao=HARDWEIGHT, bo=HARDWEIGHT;
 		uint64_t a=HARDWEIGHT, b=HARDWEIGHT;
@@ -386,10 +461,10 @@ int Preprocessor::findREDPartitionForLit(int lit, unsigned n, vector<pair<vector
 		}
 		if (jj < 2) return 0;
 		clause.resize(jj);
-		
+
 		cost += a+b-ao-bo;
 		if (cost>mcost) return 0;
-		
+
 		jj=0;
 		for (unsigned j=0;j<labels.size();++j) {
 			if (binary_search(pi.clauses[c].lit.begin(), pi.clauses[c].lit.end(), labels[j])) {
@@ -398,14 +473,14 @@ int Preprocessor::findREDPartitionForLit(int lit, unsigned n, vector<pair<vector
 		}
 		labels.resize(jj);
 	}
-	
+
 	// sort clauses in ascending order to the size to reduce the number of sat solver calls, short clauses first, they are most likely to not be redundant
 	auto cmp = [&](const pair<vector<pair<uint64_t, int> >, vector<int> >& a, const pair<vector<pair<uint64_t, int> >, vector<int> >& b) {
 		return a.F.size() < b.F.size();
 	};
-	
+
 	sort(clauses.begin(), clauses.end(), cmp);
-	
+
 	return cost>0?1:2;
 }
 
@@ -415,22 +490,22 @@ int Preprocessor::tryREDOnLit(int lit) {
 	// lb can then be hardened
 	// case 1: no labels in redundant clause: harden lb, add reduct, subsume clauses
 	// case 2: labels in redundant clause that have total weight less than the weight of label, harden lb
-	
+
 	uint64_t mcost = 0;
 	if (pi.isLitLabel(lit)) {
-		mcost = pi.labelWeight(litVariable(lit));
+		mcost = pi.labelWeight(litVariable(lit), 0);
 	} else if (pi.isLitLabel(litNegation(lit))) {
 		return 0;
 	}
-	
-	if (!pi.litClauses[litNegation(lit)].size()) return 0;	
-	
+
+	if (!pi.litClauses[litNegation(lit)].size()) return 0;
+
 	int m=pi.litClauses[litNegation(lit)].size();
 	// try to find n clauses that would subsume clauses where litNegation(lb) is
 	// if found, we can harden
 	int UNSATChecksLeft = opt.LRED_maxUNSATReductChecksPerLabel;
 	if (UNSATChecksLeft==0) return 0;
-	
+
 	for (int n=min(m, opt.LRED_minPartitions); n<=m; n = ((n < m && (n<<1) >= m) ? m : (n<<1) ) ) {
 		// log("try RED partition with ", n, " parts");
 		// try without allowing labels...
@@ -446,7 +521,7 @@ int Preprocessor::tryREDOnLit(int lit) {
 				vector<int> satisfied;
 				for (int i=0; i<n; ++i) {
 					if (!rLog.requestTime(rLog.activeTechnique)) return 0;
-					
+
 					vector<int> clause;
 					uint64_t min_cost = 0;
 					int min_cost_l = 0;
@@ -458,7 +533,7 @@ int Preprocessor::tryREDOnLit(int lit) {
 						}
 					}
 					if (checkExtendedPositiveReduct(clause, clauses[i].S)) {
-						
+
 						int sz = clause.size();
 						if (int removed = trimReductClause(clause)) {
 							rLog.removeClause(removed);
@@ -471,7 +546,7 @@ int Preprocessor::tryREDOnLit(int lit) {
 								stats["reduct_clause_size_before_trimming"]+=sz;
 								stats["reduct_clause_size_after_trimming"]+=clause.size();
 							}
-							pi.addClause(clause, HARDWEIGHT);
+							pi.addClause(clause);
 							satSolver->addClause(clause);
 							satisfied.push_back(i);
 						} else {
@@ -479,7 +554,7 @@ int Preprocessor::tryREDOnLit(int lit) {
 						}
 					} else {
 						if (--UNSATChecksLeft==0) return 0;
-						
+
 						cost += min_cost;
 						cost_labels.push_back(min_cost_l);
 						if (cost>mcost) break;
@@ -501,8 +576,7 @@ int Preprocessor::tryREDOnLit(int lit) {
 					pi.removeClause(c);
 				}
 				// harden lb
-				vector<int> cl={lit};
-				satSolver->addClause(cl);
+				satSolver->addClause(lit);
 				int removed = setVariable(litVariable(lit), litValue(lit));
 
 				rLog.removeClause(removed);
@@ -524,7 +598,7 @@ int Preprocessor::tryREDOnLit(int lit) {
 							if (cost>mcost) break;
 						}
 						clause.push_back(l.S);
-						
+
 						if (checkExtendedPositiveReduct(clause, clauses[i].S)) {
 							found = 1;
 							break;
@@ -539,10 +613,9 @@ int Preprocessor::tryREDOnLit(int lit) {
 				}
 			}
 			if (ok) { // can harden label
-				vector<int> cl={lit};
-				satSolver->addClause(cl);
+				satSolver->addClause(lit);
 				int removed=setVariable(litVariable(lit), litValue(lit));
-				
+
 				rLog.removeClause(removed);
 				rLog.removeLabel(1);
 				return -n;
@@ -555,10 +628,10 @@ int Preprocessor::tryREDOnLit(int lit) {
 int Preprocessor::tryREDOnClause(int c) {
 	// check if clause c is redundant and if it is, remove it
 	// TODO: reconstruction
-	// TODO: doesn't work properly with UP checks... 
+	// TODO: doesn't work properly with UP checks...
 	vector<int> cl;
 	for (int l : pi.clauses[c].lit) {
-		if (pi.isLabel[litVariable(l)]) continue;
+		if (pi.isLabelVar(litVariable(l))) continue;
 		cl.push_back(l);
 	}
 	vector<int> tmp;
@@ -580,13 +653,13 @@ int Preprocessor::modelCuttingNewLit(vector<int>& clause, vector<int>& bclause, 
 		if (checkExtendedPositiveReduct(clause, tmp)) {
 			stats["modelcutting_clauses"]+=1;
 			stats["modelcutting_clause_sizes"]+=clause.size();
-			
+
 			int sz = clause.size();
 			int removed=0;
 			if (!opt.MRED_trimBefore && (removed = trimReductClause(clause))) {
 				rLog.removeClause(removed);
 			}
-			
+
 			stats["redundant_clauses"]+=1;
 			if (clause.size()) {
 				stats["added_reduct_clauses"]+=1;
@@ -596,7 +669,7 @@ int Preprocessor::modelCuttingNewLit(vector<int>& clause, vector<int>& bclause, 
 					stats["after_trimming"]+=clause.size();
 				}
 				rLog.removeClause(-1);
-				pi.addClause(clause, HARDWEIGHT);
+				pi.addClause(clause);
 				satSolver->addClause(clause);
 			} else {
 				stats["trim_reduct_clause_conflicts"]+=1;
@@ -612,7 +685,7 @@ int Preprocessor::modelCuttingNewLit(vector<int>& clause, vector<int>& bclause, 
 	} else if (opt.MRED_trimBefore) {
 		bclause.push_back(litNegation(lit));
 		up.clear();
-		satSolver->propagate(bclause, up, 2);
+		satSolver->propagate(bclause, up);
 		sort(up.begin(), up.end());
 	}
 	return 0;
@@ -622,7 +695,7 @@ int Preprocessor::tryModelCuttingRED() {
 	vector<bool> model;
 	findGoodModel(model, opt.MRED_asearchIterLimit, opt.MRED_improveTimeLimit, opt.MRED_satLikeTries, opt.MRED_satLikeTimeLimit);
 	if (model.empty()) return 0;
-	
+
 	stats["modelcutting_models"]+=0;
 	stats["modelcutting_clauses"]+=0;
 	stats["modelcutting_clause_sizes"]+=0;
@@ -638,7 +711,7 @@ int Preprocessor::tryModelCuttingRED() {
 		if (!opt.MRED_randomizedTries) {
 			for (int v=0; v<pi.vars; ++v) {
 				if (!rLog.requestTime(Log::Technique::MRED)) return nofReducts;
-				if (pi.isVarRemoved(v) || pi.isLabel[v]) continue;
+				if (pi.isVarRemoved(v) || pi.isLabelVar(v)) continue;
 				int lit = model[v] ? negLit(v) : posLit(v);
 				bool nf = nofReducts==0;
 				nofReducts += modelCuttingNewLit(clause, bclause, up, litsInClause, lit);
@@ -652,7 +725,7 @@ int Preprocessor::tryModelCuttingRED() {
 		} else {
 			vector<int> lits;
 			for (int v=0; v<pi.vars;++v) {
-				if (pi.isVarRemoved(v) || pi.isLabel[v]) continue;
+				if (pi.isVarRemoved(v) || pi.isLabelVar(v)) continue;
 				lits.push_back(model[v]?negLit(v):posLit(v));
 			}
 			for (int tries=0; nofReducts==0 && tries<opt.MRED_randomizedTries; ++tries) {
@@ -679,16 +752,16 @@ int Preprocessor::tryModelCuttingRED() {
 
 int Preprocessor::tryUPLitRED(int lit) {
 	if (pi.isLitLabel(litNegation(lit)) || pi.isVarRemoved(litVariable(lit))) return 0;
-	
+
 	vector<int> a={lit};
 	vector<int> l;
 	if (checkExtendedPositiveReduct(a,l)) {
-		if (pi.isLabel[litVariable(lit)]) {
+		if (pi.isLabelVar(litVariable(lit))) {
 			rLog.removeLabel(1);
 		} else {
 			rLog.removeVariable(1);
 		}
-		satSolver->addClause(a);
+		satSolver->addClause(lit);
 		rLog.removeClause(setVariable(litVariable(lit), litValue(lit)));
 		return 1;
 	}
@@ -698,7 +771,7 @@ int Preprocessor::tryUPLitRED(int lit) {
 int Preprocessor::doLabelRED() {
 	rLog.startTechnique(Log::Technique::LRED);
 	prepareSatSolver();
-	
+
 	int satb=redSatSolverCalls;
 	int redLabels1=0;
 	int redLabels2=0;
@@ -736,7 +809,7 @@ int Preprocessor::doLabelRED() {
 			log(redLabels1+redLabels2, " labels hardened by LRED: ", redLabels1, ", ", redLabels2, ", ", redLits, ", sat solver calls: ", redSatSolverCalls-satb);
 			return redLabels1+redLabels2;
 		}
-	
+
 		if (pi.isLitLabel(l)) {
 			int v=tryREDOnLit(l);
 			if (v>0) {
@@ -804,23 +877,23 @@ int Preprocessor::doUPLitRED() {
 		rLog.stopTechnique(Log::Technique::URED);
 		return 0;
 	}
-	
+
 	prepareSatSolver();
-	
-	
+
+
 	vector<pair<int, int> > vars;
 	for (int var=0; var<pi.vars; ++var) {
 		if (pi.isVarRemoved(var)) continue;
 		vars.push_back({-((int)pi.litClauses[posLit(var)].size()+pi.litClauses[negLit(var)].size()), var});
 	}
 	sort(vars.begin(), vars.end());
-	
+
 	int removedVars = 0;
 	for (unsigned i=0; i<vars.size(); ++i) {
 		if (rLog.requestTime(Log::Technique::URED)) removedVars += tryUPLitRED(posLit(vars[i].S));
 		if (rLog.requestTime(Log::Technique::URED)) removedVars += tryUPLitRED(negLit(vars[i].S));
 	}
-	
+
 	rLog.stopTechnique(Log::Technique::URED);
 	return removedVars;
 }

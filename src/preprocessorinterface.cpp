@@ -14,8 +14,7 @@
 
 using namespace std;
 namespace maxPreprocessor {
-	PreprocessorInterface::PreprocessorInterface(const vector<vector<int> >& clauses, const vector<uint64_t>& weights, uint64_t topWeight_, bool inProcessMode_)
-	: preprocessor(clauses, weights, topWeight_), topWeight(topWeight_), inProcessMode(inProcessMode_) {
+	void PreprocessorInterface::init(const vector<vector<int> > & clauses) {
 		variables = 0;
 		originalVariables = 0;
 		for (auto& clause : clauses) {
@@ -43,8 +42,20 @@ namespace maxPreprocessor {
 			}
 		}
 	}
+	PreprocessorInterface::PreprocessorInterface(const vector<vector<int> >& clauses, const vector<uint64_t>& weights, uint64_t topWeight_, bool inProcessMode_)
+	: preprocessor(clauses, weights, topWeight_), topWeight(topWeight_), inProcessMode(inProcessMode_) {
+		init(clauses);
+	}
+	PreprocessorInterface::PreprocessorInterface(const vector<vector<int> >& clauses, const vector<pair<uint64_t, uint64_t> >& weights, uint64_t topWeight_, bool inProcessMode_)
+	: preprocessor(clauses, weights, topWeight_), topWeight(topWeight_), inProcessMode(inProcessMode_) {
+		init(clauses);
+	}
+	PreprocessorInterface::PreprocessorInterface(const vector<vector<int> >& clauses, const vector<vector<uint64_t> >& weights, uint64_t topWeight_, bool inProcessMode_)
+	: preprocessor(clauses, weights, topWeight_), topWeight(topWeight_), inProcessMode(inProcessMode_) {
+		init(clauses);
+	}
 
-	uint64_t PreprocessorInterface::getRemovedWeight() {
+	vector<uint64_t> PreprocessorInterface::getRemovedWeight() {
 		return preprocessor.trace.removedWeight;
 	}
 
@@ -56,24 +67,14 @@ namespace maxPreprocessor {
 		preprocessor.BVEglobalGrow = BVEglobalGrow;
 
 		preprocessor.preprocess(techniques, timeLimit, false, useBVEGateExtraction, !preprocessed, useLabelMatching);
+
 		preprocessed = true;
 		variables = max(variables, preprocessor.pi.vars);
 	}
 
-
-	void PreprocessorInterface::_getInstance(std::vector<std::vector<int> >& retClauses, std::vector<uint64_t>& retWeights) {
-		preprocessedInstance = preprocessor.getPreprocessedInstance();
-		swap(retClauses, preprocessedInstance.clauses);
-		swap(retWeights, preprocessedInstance.weights);
-	}
-
-
-	void PreprocessorInterface::getInstance(std::vector<std::vector<int> >& retClauses, std::vector<uint64_t>& retWeights, std::vector<int>& retLabels) {
-		preprocessedInstance = preprocessor.getPreprocessedInstance();
+	void PreprocessorInterface::getInstanceClausesAndLabels(std::vector<std::vector<int> >& retClauses, std::vector<int>& retLabels) {
 
 		retClauses = preprocessedInstance.clauses;
-		retWeights = preprocessedInstance.weights;
-
 		for (unsigned i = 0; i < preprocessedInstance.labels.size(); i++) {
 			retLabels.push_back(litToSolver(litToDimacs(preprocessedInstance.labels[i].F)));
 		}
@@ -84,10 +85,71 @@ namespace maxPreprocessor {
 				lit = litToSolver(lit);
 			}
 		}
+	}
 
-		for (uint64_t& w : retWeights) {
-			if (w == HARDWEIGHT) {
-				w = topWeight;
+	void PreprocessorInterface::_getInstance(std::vector<std::vector<int> >& retClauses, std::vector<uint64_t>& retWeights, bool addRemovedWeight, bool sortLabelsFrequency) {
+		preprocessedInstance = preprocessor.getPreprocessedInstance(addRemovedWeight, sortLabelsFrequency);
+		swap(retClauses, preprocessedInstance.clauses);
+		swap(retWeights, preprocessedInstance.weights);
+	}
+
+	void PreprocessorInterface::getInstance(std::vector<std::vector<int> >& retClauses, std::vector<uint64_t>& retWeights, std::vector<int>& retLabels, bool addRemovedWeight, bool sortLabelsFrequency) {
+		assert(preprocessor.pi.objectives == 1);
+
+		preprocessedInstance = preprocessor.getPreprocessedInstance(addRemovedWeight, sortLabelsFrequency);
+		getInstanceClausesAndLabels(retClauses, retLabels);
+
+		retWeights.resize(preprocessedInstance.weights.size());
+		for (unsigned i=0; i<preprocessedInstance.weights.size(); ++i) {
+			if (preprocessedInstance.weights[i] == HARDWEIGHT) {
+				retWeights[i] = topWeight;
+			} else {
+				retWeights[i] = preprocessedInstance.weights[i];
+			}
+		}
+	}
+
+
+	void PreprocessorInterface::getInstance(std::vector<std::vector<int> >& retClauses, std::vector<std::pair<uint64_t, uint64_t> >& retWeights, std::vector<int>& retLabels, bool addRemovedWeight, bool sortLabelsFrequency) {
+		assert(preprocessor.pi.objectives == 2);
+
+		preprocessedInstance = preprocessor.getPreprocessedInstance(addRemovedWeight, sortLabelsFrequency);
+		getInstanceClausesAndLabels(retClauses, retLabels);
+
+		retWeights.resize(preprocessedInstance.weightsv.size());
+		for (unsigned i=0; i<preprocessedInstance.weightsv.size(); ++i) {
+			if (preprocessedInstance.weightsv[i].size() == 0) {
+				retWeights[i].F = topWeight;
+				retWeights[i].S = topWeight;
+			} else {
+				retWeights[i].F = preprocessedInstance.weightsv[i][0];
+				retWeights[i].S = (preprocessedInstance.weightsv[i].size()>1 ?  preprocessedInstance.weightsv[i][1] : 0);
+				if (retWeights[i].F == HARDWEIGHT) retWeights[i].F = topWeight;
+				if (retWeights[i].S == HARDWEIGHT) retWeights[i].S = topWeight;
+			}
+		}
+	}
+
+	void PreprocessorInterface::getInstance(std::vector<std::vector<int> >& retClauses, std::vector<std::vector<uint64_t> >& retWeights, std::vector<int>& retLabels, bool addRemovedWeight, bool sortLabelsFrequency) {
+		preprocessedInstance = preprocessor.getPreprocessedInstance(addRemovedWeight, sortLabelsFrequency);
+		getInstanceClausesAndLabels(retClauses, retLabels);
+
+		if (preprocessor.pi.objectives > 1) {
+			retWeights = preprocessedInstance.weightsv;
+			for (auto& ws : retWeights) {
+				for (uint64_t& w : ws) {
+					if (w == HARDWEIGHT) {
+						w = topWeight;
+					}
+				}
+			}
+		} else {
+			retWeights.resize(preprocessedInstance.weights.size());
+			for (unsigned i=0; i<preprocessedInstance.weights.size(); ++i) {
+				uint64_t w = preprocessedInstance.weights[i];
+				if (w != HARDWEIGHT) {
+					retWeights[i].push_back(w);
+				}
 			}
 		}
 	}
@@ -100,6 +162,10 @@ namespace maxPreprocessor {
 			ppTrueLiterals.push_back(lit);
 		}
 		return preprocessor.trace.getSolution(ppTrueLiterals, 0, variables, originalVariables).F;
+	}
+
+	vector<int> PreprocessorInterface::getFixed() {
+		return preprocessor.trace.getFixed();
 	}
 
 	void PreprocessorInterface::printSolution(const vector<int>& trueLiterals, ostream& output, uint64_t ansWeight) {
@@ -140,8 +206,8 @@ namespace maxPreprocessor {
 		if (lbl == 0) return 0;
 		if (weight >= topWeight) weight = HARDWEIGHT;
 		int iVar = solverVarToPPVar[lbl-1]-1;
-		preprocessor.pi.addClause({negLit(iVar)}, weight);
-		preprocessor.pi.isLabel[iVar] = VAR_FALSE;
+		preprocessor.pi.addClause({negLit(iVar)}, {weight});
+		preprocessor.pi.mkLabel(iVar, 0, VAR_FALSE);
 		return lbl;
 	}
 
@@ -151,11 +217,11 @@ namespace maxPreprocessor {
 		int iVar = solverVarToPPVar[lbl-1]-1;
 		assert(iVar >= 0);
 		int softClause = -1;
-		if (preprocessor.pi.isLabel[iVar] == VAR_TRUE) {
+		if (preprocessor.pi.labelPolarity(iVar, 0) == VAR_TRUE) {
 			//assert(preprocessor.pi.litClauses[posLit(iVar)].size() == 1);
 			softClause = preprocessor.pi.litClauses[posLit(iVar)][0];
 		}
-		else if (preprocessor.pi.isLabel[iVar] == VAR_FALSE) {
+		else if (preprocessor.pi.labelPolarity(iVar, 0) == VAR_FALSE) {
 			//assert(preprocessor.pi.litClauses[negLit(iVar)].size() == 1);
 			softClause = preprocessor.pi.litClauses[negLit(iVar)][0];
 		}
@@ -163,17 +229,11 @@ namespace maxPreprocessor {
 			return false;
 		}
 		if (weight >= topWeight) {
-			preprocessor.pi.isLabel[iVar] = 0;
+			preprocessor.pi.unLabel(iVar, 0);
 			weight = HARDWEIGHT;
 		}
 		assert(!preprocessor.pi.clauses[softClause].isHard());
-		preprocessor.pi.clauses[softClause].weight = weight;
-		if (weight == HARDWEIGHT) {
-			assert(preprocessor.pi.clauses[softClause].isHard());
-		}
-		else {
-			assert(preprocessor.pi.labelWeight(iVar) == weight);
-		}
+		preprocessor.pi.clauses[softClause].weights[0] = weight;
 		return true;
 	}
 
@@ -206,25 +266,28 @@ namespace maxPreprocessor {
 		int iVar = solverVarToPPVar[lbl-1]-1;
 		assert(iVar >= 0);
 		int softClause = -1;
-		if (preprocessor.pi.isLabel[iVar] == VAR_TRUE) {
+		if (preprocessor.pi.labelPolarity(iVar, 0) == VAR_TRUE) {
 			assert(preprocessor.pi.litClauses[posLit(iVar)].size() >= 1);
 			softClause = preprocessor.pi.litClauses[posLit(iVar)][0];
 		}
-		else if (preprocessor.pi.isLabel[iVar] == VAR_FALSE) {
+		else if (preprocessor.pi.labelPolarity(iVar, 0) == VAR_FALSE) {
 			assert(preprocessor.pi.litClauses[negLit(iVar)].size() >= 1);
 			softClause = preprocessor.pi.litClauses[negLit(iVar)][0];
 		}
 		else {
 			return true;
 		}
-		preprocessor.pi.isLabel[iVar] = 0;
-		preprocessor.pi.removeClause(softClause);
+		preprocessor.pi.unLabel(iVar, 0);
+		preprocessor.pi.clauses[softClause].weights[0] = 0;
+		if (preprocessor.pi.clauses[softClause].isWeightless()) {
+			preprocessor.pi.removeClause(softClause);
+		}
 		return true;
 	}
 
 	bool PreprocessorInterface::resetRemovedWeight() {
 		if (!inProcessMode) return false;
-		preprocessor.trace.removedWeight = 0;
+		preprocessor.trace.removedWeight.clear();
 		return true;
 	}
 
@@ -299,15 +362,15 @@ namespace maxPreprocessor {
 
 	void PreprocessorInterface::printInstance(ostream& output, int outputFormat) {
 		std::vector<std::vector<int> > clauses;
-		std::vector<uint64_t> weights;
+		std::vector<std::vector<uint64_t> > weights;
 		std::vector<int> labels;
-		getInstance(clauses, weights, labels);
+		getInstance(clauses, weights, labels, true);
 
-		assert(outputFormat == INPUT_FORMAT_WPMS || outputFormat == INPUT_FORMAT_SAT || INPUT_FORMAT_WPMS22);
+		assert(outputFormat == INPUT_FORMAT_WPMS || outputFormat == INPUT_FORMAT_SAT || outputFormat == INPUT_FORMAT_WPMS22 || outputFormat == INPUT_FORMAT_WMOO);
 
 		if (clauses.size() == 0) {
 			clauses.push_back({-1, 1});
-			weights.push_back(topWeight);
+			weights.push_back({topWeight});
 		}
 
 		if (outputFormat == INPUT_FORMAT_WPMS || outputFormat == INPUT_FORMAT_WPMS22) {
@@ -326,7 +389,8 @@ namespace maxPreprocessor {
 		if (outputFormat == INPUT_FORMAT_WPMS) {
 			output<<"p wcnf "<<max((int)solverVarToPPVar.size(), 1)<<" "<<clauses.size()<<" "<<topWeight<< '\n';
 			for (unsigned i = 0; i < clauses.size(); i++) {
-				output<<weights[i]<<" ";
+				if (weights[i].size()==0) output<<topWeight<<" ";
+				else output<<weights[i][0]<<" ";
 				for (int lit : clauses[i]) {
 					output<<lit<<" ";
 				}
@@ -344,12 +408,35 @@ namespace maxPreprocessor {
 		} else if (outputFormat == INPUT_FORMAT_WPMS22) {
 			output<<"c p wcnf "<<max((int)solverVarToPPVar.size(), 1)<<" "<<clauses.size()<<" "<<topWeight<< '\n';
 			for (unsigned i = 0; i < clauses.size(); i++) {
-				if (weights[i] == topWeight) output << "h ";
-				else output << weights[i] << " ";
+				if (weights[i].size()==0 || weights[i][0] == topWeight) output<<"h  ";
+				else output << weights[i][0] << " ";
 				for (int lit : clauses[i]) {
 					output<<lit<<" ";
 				}
 				output<<"0\n";
+			}
+		} else if (outputFormat == INPUT_FORMAT_WMOO) {
+			for (unsigned i = 0; i < clauses.size(); i++) {
+				bool isHard  = 1;
+				for (unsigned j=0; j<weights[i].size(); ++j) {
+					if (weights[i][j] < topWeight) {
+						isHard = 0;
+						if (weights[i][j]>0) {
+							output << 'o' << j+1 << " " << weights[i][j] << " ";
+							for (int lit : clauses[i]) {
+								output<<lit<<" ";
+							}
+							output<<"0\n";
+						}
+					}
+				}
+				if (isHard) {
+					output << "h ";
+					for (int lit : clauses[i]) {
+						output<<lit<<" ";
+					}
+					output<<"0\n";
+				}
 			}
 		}
 		else {

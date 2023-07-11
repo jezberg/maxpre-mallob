@@ -3,11 +3,11 @@
 #include "global.hpp"
 
 
-bool SatlikeInterface::do_search(const maxPreprocessor::ProblemInstance& pi, const vector<bool>& initial_solution, vector<bool>& best_solution, double timeLimit) {
+bool SatlikeInterface::do_search(const maxPreprocessor::ProblemInstance& pi, const vector<bool>& initial_solution, vector<bool>& best_solution, double timeLimit, int objective) {
 	maxPreprocessor::Timer timer;
 	timer.start();
 	Satlike satlike;
-	
+
 	// init satlike
 	lit** clauses;
 	int* lit_count;
@@ -20,10 +20,10 @@ bool SatlikeInterface::do_search(const maxPreprocessor::ProblemInstance& pi, con
 		if (pi.isClauseRemoved(ii)) {--i; continue;}
 		unsigned n = pi.clauses[ii].lit.size();
 		if (n==0) {--i; continue;} // empty clauses can cause satlike to crash
-		
+
 		clauses[i] = new lit[n+1];
 		lit_count[i] = n;
-		weights[i] = pi.clauses[ii].weight;
+		weights[i] = pi.clauses[ii].weight(objective);
 		for (unsigned j=0; j<n; ++j) {
 			clauses[i][j].clause_num = i;
 			clauses[i][j].var_num    = maxPreprocessor::litVariable(pi.clauses[ii].lit[j])+1;
@@ -34,17 +34,17 @@ bool SatlikeInterface::do_search(const maxPreprocessor::ProblemInstance& pi, con
 		++clauses_size;
 	}
 	satlike.build_instance(pi.vars, clauses_size, maxPreprocessor::HARDWEIGHT, clauses, lit_count, weights);
-	
-	
 
 
-	vector<int> init_solution;	
+
+
+	vector<int> init_solution;
 	if (initial_solution.size()) {
 		init_solution.resize(pi.vars+1);
 	}
 	for (unsigned i=0; i<initial_solution.size();++i) init_solution[i+1]=initial_solution[i];
-	
-	
+
+
 	// do search
 	satlike.settings();
 	satlike.init(init_solution);
@@ -66,15 +66,15 @@ bool SatlikeInterface::do_search(const maxPreprocessor::ProblemInstance& pi, con
 		int flipvar = satlike.pick_var();
 		satlike.flip(flipvar);
 		satlike.time_stamp[flipvar] = step;
-		
+
 		if (timer.getTime().count()>timeLimit) {
 			break;
 		}
 	}
 // 	cout << "c satlike search done!" << endl;
 	//satlike.local_search(init_solution);
-	
+
 	satlike.free_memory();
-	
+
 	return found_solution;
 }

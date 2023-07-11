@@ -3,18 +3,18 @@ bool Preprocessor::tryBCR(int c, int l11) {
 	int l2 = pi.clauses[c].lit[1];
 	if (l2 == l11) swap(l1, l2);
 	assert(l1 == l11);
-	
+
 	if (pi.litClauses[l1].size() < 2) return false;
 	if (pi.litClauses[l2].size() < 2) return false;
 	if (pi.litClauses[litNegation(l1)].size()>1) return false;
 	if (pi.litClauses[litNegation(l2)].size()>1) return false;
 	assert(pi.litClauses[litNegation(l1)].size() == 1);
 	assert(pi.litClauses[litNegation(l2)].size() == 1);
-	
+
 	vector<vector<int> > newClauses;
-	
+
 	int sizeLimit = pi.litClauses[l1].size() + pi.litClauses[l2].size();
-	
+
 	for (int c1 : pi.litClauses[l1]) {
 		if (c1 != c) {
 			for (int l : pi.clauses[c1].lit) {
@@ -70,7 +70,7 @@ bool Preprocessor::tryBCR(int c, int l11) {
 		rLog.removeClause(-1);
 	}
 	rLog.removeLabel(1);
-	trace.removeWeight(pi.clauses[pi.litClauses[litNegation(l2)][0]].weight);
+	trace.removeWeight(pi.clauses[pi.litClauses[litNegation(l2)][0]].weights);
 	trace.BCR(l1, l2, nClauses);
 	return true;
 }
@@ -92,38 +92,43 @@ int Preprocessor::doBCR() {
 		sort(checkVar.begin(), checkVar.end(), cmp);
 	}
 	for (int var : checkVar) {
-		if (pi.isLabel[var] == VAR_UNDEFINED) continue;
+		if (!pi.isLabelVar(var)) continue;
+		if (pi.slabelPolarity(var) == VAR_UNDEFINED) continue;
 		if (pi.isVarRemoved(var)) continue;
 		if (!rLog.requestTime(Log::Technique::BCR)) break;
-		if (pi.isLabel[var] == VAR_TRUE) {
+
+		if (pi.slabelPolarity(var) == VAR_TRUE) {
 			if (pi.litClauses[posLit(var)].size() > 1) continue;
 			assert(pi.litClauses[posLit(var)].size() == 1);
 			for (int c : pi.litClauses[negLit(var)]) {
-				if (pi.clauses[c].lit.size() == 2) {
-					if (pi.isLitLabel(litNegation(pi.clauses[c].lit[0])) && pi.isLitLabel(litNegation(pi.clauses[c].lit[1]))) {
-						if (pi.labelWeight(litVariable(pi.clauses[c].lit[0])) == pi.labelWeight(litVariable(pi.clauses[c].lit[1]))) {
-							if (tryBCR(c, negLit(var))) {
-								removed++;
-								break;
-							}
-						}
-					}
+				if (pi.clauses[c].lit.size() != 2) continue;
+				const int l1 = pi.clauses[c].lit[0];
+				const int l2 = pi.clauses[c].lit[1];
+				const int v1 = litVariable(l1);
+				const int v2 = litVariable(l2);
+				if (pi.labelIndexMask(v2) != pi.labelIndexMask(v1)) continue;
+				if (pi.slabelPolarity(v1) != litPolarity(litNegation(l1)) || pi.slabelPolarity(v2) != litPolarity(litNegation(l2))) continue;
+				if (!pi.wEqual(pi.labelLitWeights(litNegation(l1)), pi.labelLitWeights(litNegation(l2)))) continue;
+				if (tryBCR(c, negLit(var))) {
+					removed++;
+					break;
 				}
 			}
-		}
-		else if(pi.isLabel[var] == VAR_FALSE) {
+		} else if(pi.slabelPolarity(var) == VAR_FALSE) {
 			if (pi.litClauses[negLit(var)].size() > 1) continue;
 			assert(pi.litClauses[negLit(var)].size() == 1);
 			for (int c : pi.litClauses[posLit(var)]) {
-				if (pi.clauses[c].lit.size() == 2) {
-					if (pi.isLitLabel(litNegation(pi.clauses[c].lit[0])) && pi.isLitLabel(litNegation(pi.clauses[c].lit[1]))) {
-						if (pi.labelWeight(litVariable(pi.clauses[c].lit[0])) == pi.labelWeight(litVariable(pi.clauses[c].lit[1]))) {
-							if (tryBCR(c, posLit(var))) {
-								removed++;
-								break;
-							}
-						}
-					}
+				if (pi.clauses[c].lit.size() != 2) continue;
+				const int l1 = pi.clauses[c].lit[0];
+				const int l2 = pi.clauses[c].lit[1];
+				const int v1 = litVariable(l1);
+				const int v2 = litVariable(l2);
+				if (pi.labelIndexMask(v2) != pi.labelIndexMask(v1)) continue;
+				if (pi.slabelPolarity(v1) != litPolarity(litNegation(l1)) || pi.slabelPolarity(v2) != litPolarity(litNegation(l2))) continue;
+				if (!pi.wEqual(pi.labelLitWeights(litNegation(l1)), pi.labelLitWeights(litNegation(l2)))) continue;
+				if (tryBCR(c, posLit(var))) {
+					removed++;
+					break;
 				}
 			}
 		}
@@ -138,36 +143,39 @@ int Preprocessor::doBCR() {
 
 void Preprocessor::doBCR2() {
 	for (int i = 0; i < pi.vars; i++) {
-		if (pi.isLabel[i] && !pi.isVarRemoved(i)) {
-			if (pi.isLabel[i] == VAR_TRUE) {
+		if (!pi.isLabelVar(i) && !pi.isVarRemoved(i)) {
+			if (pi.slabelPolarity(i) == VAR_TRUE) {
 				if (pi.litClauses[posLit(i)].size()>1) continue;
 				assert(pi.litClauses[posLit(i)].size() == 1);
 				for (int c : pi.litClauses[negLit(i)]) {
-					if (pi.clauses[c].lit.size() == 2) {
-						if (pi.isLitLabel(litNegation(pi.clauses[c].lit[0])) && pi.isLitLabel(litNegation(pi.clauses[c].lit[1]))) {
-							if (pi.clauses[pi.litClauses[litNegation(pi.clauses[c].lit[0])][0]].weight == pi.clauses[pi.litClauses[litNegation(pi.clauses[c].lit[1])][0]].weight) {
-								if (tryBCR(c, negLit(i))) {
-									print("FAIL BCR ", i);
-									abort();
-								}
-							}
-						}
+					if (pi.clauses[c].lit.size() != 2) continue;
+					const int l1 = pi.clauses[c].lit[0];
+					const int l2 = pi.clauses[c].lit[1];
+					const int v1 = litVariable(l1);
+					const int v2 = litVariable(l2);
+					if (pi.labelIndexMask(v2) != pi.labelIndexMask(v1)) continue;
+					if (pi.slabelPolarity(v1) != litPolarity(litNegation(l1)) || pi.slabelPolarity(v2) != litPolarity(litNegation(l2))) continue;
+					if (!pi.wEqual(pi.labelLitWeights(litNegation(l1)), pi.labelLitWeights(litNegation(l2)))) continue;
+					if (tryBCR(c, negLit(i))) {
+						print("FAIL BCR ", i);
+						abort();
 					}
 				}
-			}
-			else if(pi.isLabel[i] == VAR_FALSE) {
+			} else if(pi.slabelPolarity(i) == VAR_FALSE) {
 				if (pi.litClauses[negLit(i)].size()>1) continue;
 				assert(pi.litClauses[negLit(i)].size() == 1);
 				for (int c : pi.litClauses[posLit(i)]) {
-					if (pi.clauses[c].lit.size() == 2) {
-						if (pi.isLitLabel(litNegation(pi.clauses[c].lit[0])) && pi.isLitLabel(litNegation(pi.clauses[c].lit[1]))) {
-							if (pi.clauses[pi.litClauses[litNegation(pi.clauses[c].lit[0])][0]].weight == pi.clauses[pi.litClauses[litNegation(pi.clauses[c].lit[1])][0]].weight) {
-								if (tryBCR(c, posLit(i))) {
-									print("FAIL BCR ", i);
-									abort();
-								}
-							}
-						}
+					if (pi.clauses[c].lit.size() != 2) continue;
+					const int l1 = pi.clauses[c].lit[0];
+					const int l2 = pi.clauses[c].lit[1];
+					const int v1 = litVariable(l1);
+					const int v2 = litVariable(l2);
+					if (pi.labelIndexMask(v2) != pi.labelIndexMask(v1)) continue;
+					if (pi.slabelPolarity(v1) != litPolarity(litNegation(l1)) || pi.slabelPolarity(v2) != litPolarity(litNegation(l2))) continue;
+					if (!pi.wEqual(pi.labelLitWeights(litNegation(l1)), pi.labelLitWeights(litNegation(l2)))) continue;
+					if (tryBCR(c, posLit(i))) {
+						print("FAIL BCR ", i);
+						abort();
 					}
 				}
 			}

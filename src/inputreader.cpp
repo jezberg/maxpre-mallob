@@ -13,24 +13,36 @@ using namespace std;
 namespace maxPreprocessor {
 
 int InputReader::readWeightedClause(istream& input) {
+	unsigned objective = 0;
+	if (inputFormat == INPUT_FORMAT_WMOO) {
+		char o;
+		input>>o;
+		if (!input.good() || o != 'o') return 1;
+		input>>objective;
+		--objective;
+		if (!input.good()) return 1;
+	}
+
 	uint64_t weight;
 	vector<int> clause;
 	input>>weight;
-	if (!input.good()) {
-		return 1;
-	}
+	if (!input.good()) return 1;
+
 	if (weight > top) weight = top;
 	int lit;
 	while (input>>lit) {
 		if (lit == 0) break;
 		clause.push_back(lit);
 	}
-	if (input.fail()) {
-		return 1;
-	}
+	if (input.fail()) return 1;
+
 	if (weight == 0) return 0;
 	clauses.push_back(clause);
-	weights.push_back(weight);
+
+	weights.push_back({});
+	while (weights.back().size() < objective) weights.back().push_back(0);
+	weights.back().push_back(weight);
+
 	return 0;
 }
 
@@ -45,7 +57,7 @@ int InputReader::readClause(istream& input, uint64_t defaultWeight) {
 		return 1;
 	}
 	clauses.push_back(clause);
-	weights.push_back(defaultWeight);
+	weights.push_back({defaultWeight});
 	return 0;
 }
 
@@ -64,7 +76,7 @@ int InputReader::readHardClause(istream& input) {
 		return 1;
 	}
 	clauses.push_back(clause);
-	weights.push_back(top);
+	weights.push_back({});
 	return 0;
 }
 
@@ -189,7 +201,7 @@ int InputReader::readCardinalityConstraint(istream& inputF) {
 	return 0;
 }
 
-int InputReader::readLine(istream& input, bool maxSat) {
+int InputReader::readLine(istream& input) {
 	input>>ws;
 	top = (1ull << 63ull) - 1;
 
@@ -221,7 +233,7 @@ int InputReader::readLine(istream& input, bool maxSat) {
 			readError = "Invalid p-line of the input (line "+to_string(currentLine)+")";
 			return 2;
 		}
-		if (line == "wcnf" && maxSat) {
+		if (line == "wcnf") {
 			inputFormat = INPUT_FORMAT_WPMS;
 			if (!(parameterLine>>top)) {
 				cerr<<"Weighted Max-SAT input format"<<endl;
@@ -232,12 +244,12 @@ int InputReader::readLine(istream& input, bool maxSat) {
 			}
 			cerr<<"Top "<<top<<endl;
 		}
-		else if (line == "cnf" && maxSat) {
+		else if (line == "cnf" && inputFormat != INPUT_FORMAT_SAT) {
 			inputFormat = INPUT_FORMAT_MS;
 			cerr<<"Max-SAT input format"<<endl;
 			top = (1ull << 63ull) - 1;
 		}
-		else if (line == "cnf" && !maxSat) {
+		else if (line == "cnf") {
 			inputFormat = INPUT_FORMAT_SAT;
 			cerr<<"SAT input format"<<endl;
 			top = (1ull << 63ull) - 1;
@@ -254,7 +266,7 @@ int InputReader::readLine(istream& input, bool maxSat) {
 		status = readHardClause(input);
 		if (status == 1) readError = "Failed to read a hard clause (line "+to_string(currentLine)+")";
 	}
-	else if (inputFormat == INPUT_FORMAT_WPMS || inputFormat == INPUT_FORMAT_WPMS22) {
+	else if (inputFormat == INPUT_FORMAT_WPMS || inputFormat == INPUT_FORMAT_WPMS22 || inputFormat == INPUT_FORMAT_WMOO) {
 		status = readWeightedClause(input);
 		if (status == 1) readError = "Failed to read a clause (line "+to_string(currentLine)+")";
 	}
@@ -275,16 +287,23 @@ int InputReader::readLine(istream& input, bool maxSat) {
 	else return 2;
 }
 
-int InputReader::readClauses(istream& input, bool maxSat) {
+int InputReader::readClauses(istream& input, int problemType) {
 	clauses.clear();
 	weights.clear();
 	cardinalityConstraints.clear();
 	readError = "";
 	currentLine = 0;
-	inputFormat = INPUT_FORMAT_WPMS22;
+	if (problemType==0) {
+		inputFormat = INPUT_FORMAT_SAT;
+	} else if (problemType == 1) {
+		inputFormat = INPUT_FORMAT_WPMS22;
+	} else if (problemType == 2) {
+		inputFormat = INPUT_FORMAT_WMOO;
+	}
+
 	while (1) {
 		currentLine++;
-		int status = readLine(input, maxSat);
+		int status = readLine(input);
 		if (status == 1) break;
 		else if (status == 2) return 1;
 		assert(status == 0);
@@ -304,7 +323,7 @@ int InputReader::readClauses(istream& input, bool maxSat) {
 		vector<vector<int> > cls = cc.getClauses(freeVar);
 		for (auto& clause : cls) {
 			clauses.push_back(clause);
-			weights.push_back(top);
+			weights.push_back({top});
 			for (int lit : clause) {
 				freeVar = max(freeVar, abs(lit) + 1);
 			}

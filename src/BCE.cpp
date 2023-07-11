@@ -51,7 +51,7 @@ int Preprocessor::doBCE() {
 		for (int tc = 0; tc < opt.skipTechnique; tc++) {
 			if (!rLog.requestTime(Log::Technique::BCE)) break;
 			int var = checkVar[getRand(0, (int)checkVar.size() - 1)];
-			if (pi.isLabel[var] == 0) {
+			if (!pi.isLabelVar(var)) {
 				removed += tryBCE(negLit(var));
 				removed += tryBCE(posLit(var));
 			}
@@ -64,7 +64,7 @@ int Preprocessor::doBCE() {
 	if (!skip) {
 		for (int var : checkVar) {
 			if (!rLog.requestTime(Log::Technique::BCE)) break;
-			if (pi.isLabel[var] == 0) {
+			if (!pi.isLabelVar(var)) {
 				removed += tryBCE(negLit(var));
 				removed += tryBCE(posLit(var));
 			}
@@ -77,7 +77,7 @@ int Preprocessor::doBCE() {
 
 void Preprocessor::doBCE2() {
 	for (int lit = 0; lit < 2*pi.vars; lit++) {
-		if (pi.isLabel[litVariable(lit)] == 0 && !pi.isVarRemoved(litVariable(lit))) {
+		if (!pi.isLabelVar(litVariable(lit)) && !pi.isVarRemoved(litVariable(lit))) {
 			assert(tryBCE(lit) == 0);
 		}
 	}

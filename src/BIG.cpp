@@ -15,7 +15,7 @@ void Preprocessor::BIGdfs1(int x, vector<int>& ns) {
 		for (int c : pi.litClauses[v]) {
 			if (pi.clauses[c].lit.size() == 2) {
 				for (int nx : pi.clauses[c].lit) {
-					if (nx != v && pi.isLabel[litVariable(nx)] == VAR_UNDEFINED) {
+					if (nx != v && !pi.isLabelVar(litVariable(nx))) {
 						bfs.push(litNegation(nx));
 					}
 				}
@@ -25,7 +25,7 @@ void Preprocessor::BIGdfs1(int x, vector<int>& ns) {
 		for (int c : pi.litClauses[litNegation(v)]) {
 			if (pi.clauses[c].lit.size() == 2) {
 				for (int nx : pi.clauses[c].lit) {
-					if (nx != litNegation(v) && pi.isLabel[litVariable(nx)] == VAR_UNDEFINED) {
+					if (nx != litNegation(v) && !pi.isLabelVar(litVariable(nx))) {
 						bfs.push(nx);
 					}
 				}
@@ -137,7 +137,7 @@ int Preprocessor::tryBIG(int lit, bool doTC) {
 		for (int c : pi.litClauses[litNegation(x)]) {
 			if (pi.clauses[c].lit.size() == 2) {
 				for (int nx : pi.clauses[c].lit) {
-					if (nx != litNegation(x) && pi.isLabel[litVariable(nx)] == VAR_UNDEFINED && BIGu[nx] != BIGIt) {
+					if (nx != litNegation(x) && !pi.isLabelVar(litVariable(nx)) && BIGu[nx] != BIGIt) {
 						g[BIGid[x]].push_back(BIGid[nx]);
 					}
 				}
@@ -147,7 +147,7 @@ int Preprocessor::tryBIG(int lit, bool doTC) {
 		for (int c : pi.litClauses[x]) {
 			if (pi.clauses[c].lit.size() == 2) {
 				for (int nx : pi.clauses[c].lit) {
-					if (nx != x && pi.isLabel[litVariable(nx)] == VAR_UNDEFINED && BIGu[litNegation(nx)] != BIGIt) {
+					if (nx != x && !pi.isLabelVar(litVariable(nx)) && BIGu[litNegation(nx)] != BIGIt) {
 						rg[BIGid[x]].push_back(BIGid[litNegation(nx)]);
 					}
 				}
@@ -271,7 +271,7 @@ int Preprocessor::tryBIG(int lit, bool doTC) {
 		pcc[i] = {cc[i], i};
 	}
 	sort(pcc.begin(), pcc.end());
-	
+
 	vector<int> trueLits;
 	vector<pair<int, int> > rmLit;
 	vector<int> rmClause;
@@ -379,7 +379,7 @@ int Preprocessor::doBIG(bool doTC) {
 	vector<int> checkLit = pi.tl.getBinaryLiterals("BIG");
 	for (int lit : checkLit) {
 		if (!rLog.requestTime(Log::Technique::EE)) break;
-		if (BIGu[lit] == BIGIt || pi.isLabel[litVariable(lit)]) continue;
+		if (BIGu[lit] == BIGIt || pi.isLabelVar(litVariable(lit))) continue;
 		removed += tryBIG(lit, doTC);
 	}
 	log(removed, " variables removed by EE");
@@ -394,7 +394,7 @@ void Preprocessor::doBIG2(bool doTC) {
 	if ((int)BIGu2.size() < 2*pi.vars) BIGu2.resize(2*pi.vars);
 	if ((int)BIGid.size() < 2*pi.vars) BIGid.resize(2*pi.vars);
 	for (int lit = 0; lit < 2*pi.vars; lit++) {
-		if (BIGu[lit] == BIGIt || pi.isLabel[litVariable(lit)]) continue;
+		if (BIGu[lit] == BIGIt || pi.isLabelVar(litVariable(lit))) continue;
 		if (tryBIG(lit, doTC)) {
 			print("fail BIG ", litToDimacs(lit));
 			abort();

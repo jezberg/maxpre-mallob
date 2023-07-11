@@ -120,7 +120,7 @@ pair<vector<int>, int> Preprocessor::searchXor(int var) const {
 	while ((1 << maxXorVar) <= (int)min(pi.litClauses[posLit(var)].size(), pi.litClauses[negLit(var)].size())) maxXorVar++;
 	vector<unordered_map<int, int> > pCnt(maxXorVar + 2);
 	vector<unordered_map<int, int> > nCnt(maxXorVar + 2);
-	
+
 	for (int c : pi.litClauses[posLit(var)]) {
 		if ((int)pi.clauses[c].lit.size() > maxXorVar + 1) continue;
 		if (pi.clauses[c].lit.size() < 3) continue;
@@ -286,7 +286,7 @@ pair<vector<int>, int> Preprocessor::searchXor(int var) const {
 
 vector<int> Preprocessor::tryBVEGE(int var) {
 	set<int> negBinaryClauseLits, posBinaryClauseLits;
-	
+
 	for (int c : pi.litClauses[negLit(var)]) {
 		if (pi.clauses[c].lit.size() == 2) {
 			if (litVariable(pi.clauses[c].lit[0]) == var) {
@@ -307,7 +307,7 @@ vector<int> Preprocessor::tryBVEGE(int var) {
 			}
 		}
 	}
-	
+
 	//Find the shortest definition
 	vector<int> defClauses;
 	int defVars = 0;
@@ -350,7 +350,7 @@ int Preprocessor::tryBVE2(int var) {
 	int sizeLimit = pi.litClauses[posLit(var)].size() + pi.litClauses[negLit(var)].size();
 
   sizeLimit += min(BVElocalGrow, BVEglobalGrow);
-	
+
 	vector<int> isPosDef, isNegDef;
 	vector<int> defClauses;
 	if (opt.BVEgate) {
@@ -374,7 +374,7 @@ int Preprocessor::tryBVE2(int var) {
 			}
 		}
 	}
-	
+
 	//the condition sizelimit >= 6 doesnt really help
 	if (sizeLimit >= opt.BVE_sizelimit) {
 		vector<uint64_t> h1=getBVEHash(pi.litClauses[posLit(var)], var, 0);
@@ -390,7 +390,7 @@ int Preprocessor::tryBVE2(int var) {
 			}
 		}
 	}
-	
+
 	vector<vector<int> > newClauses;
 	for (int i = 0; i < (int)pi.litClauses[posLit(var)].size(); i++) {
 		for (int ii = 0; ii < (int)pi.litClauses[negLit(var)].size(); ii++) {
@@ -413,7 +413,7 @@ int Preprocessor::tryBVE2(int var) {
 					break;
 				}
 			}
-			
+
 			if (f) continue;
 			if ((int)newClauses.size() >= sizeLimit) return 0;
 			newClauses.push_back(vector<int>());
@@ -437,7 +437,7 @@ int Preprocessor::tryBVE2(int var) {
 			}
 		}
 	}
-	
+
 	vector<vector<int> > nClauses;
 	vector<int> toRemove;
 	for (int c : pi.litClauses[posLit(var)]) {
@@ -454,12 +454,12 @@ int Preprocessor::tryBVE2(int var) {
 		pi.addClause(nc);
 	}
 	trace.BVE(var, nClauses);
-	
+
 	rLog.removeVariable(1);
 	rLog.removeClause((int)toRemove.size() - (int)newClauses.size());
 
   BVEglobalGrow += (int)toRemove.size() - (int)newClauses.size();
-	
+
 	assert(pi.litClauses[posLit(var)].size() == 0 && pi.litClauses[negLit(var)].size() == 0);
 	return 1;
 }
@@ -510,7 +510,7 @@ int Preprocessor::tryBVE(int var) {
 				}
 				j2++;
 			}
-			
+
 			// Check if valid, this can be deleted
 			for (int j = 1; j < (int)newClauses.back().size(); j++) {
 				assert(litVariable(newClauses.back()[j]) != var);
@@ -520,9 +520,9 @@ int Preprocessor::tryBVE(int var) {
 			}
 		}
 	}
-	
+
 	vector<vector<int> > nClauses;
-	
+
 	vector<int> toRemove;
 	for (int c : pi.litClauses[posLit(var)]) {
 		toRemove.push_back(c);
@@ -539,10 +539,10 @@ int Preprocessor::tryBVE(int var) {
 
 	}
 	trace.BVE(var, nClauses);
-	
+
 	rLog.removeVariable(1);
 	rLog.removeClause((int)toRemove.size() - (int)newClauses.size());
-	
+
 	//Check if valid, this can be deleted
 	assert(pi.litClauses[posLit(var)].size() == 0 && pi.litClauses[negLit(var)].size() == 0);
 	return 1;
@@ -573,7 +573,7 @@ int Preprocessor::doBVE() {
 		for (int tc = 0; tc < opt.skipTechnique; tc++) {
 			if (!rLog.requestTime(Log::Technique::BVE)) break;
 			int var = checkVar[getRand(0, (int)checkVar.size() - 1)];
-			if (pi.isLabel[var] == 0 && (pi.litClauses[posLit(var)].size() > 0 || pi.litClauses[negLit(var)].size() > 0)) {
+			if (!pi.isLabelVar(var) && (pi.litClauses[posLit(var)].size() > 0 || pi.litClauses[negLit(var)].size() > 0)) {
 				eliminated += tryBVE2(var);
 			}
 		}
@@ -585,7 +585,7 @@ int Preprocessor::doBVE() {
 	if (!skip) {
 		for (int var : checkVar) {
 			if (!rLog.requestTime(Log::Technique::BVE)) break;
-			if (pi.isLabel[var] == 0 && (pi.litClauses[posLit(var)].size() > 0 || pi.litClauses[negLit(var)].size() > 0)) {
+			if (!pi.isLabelVar(var) && (pi.litClauses[posLit(var)].size() > 0 || pi.litClauses[negLit(var)].size() > 0)) {
 				eliminated += tryBVE2(var);
 			}
 		}
@@ -597,7 +597,7 @@ int Preprocessor::doBVE() {
 
 void Preprocessor::doBVE2() {
 	for (int var = 0; var < pi.vars; var++) {
-		if (pi.isLabel[var] == 0 && (pi.litClauses[posLit(var)].size() > 0 || pi.litClauses[negLit(var)].size() > 0)) {
+		if (!pi.isLabelVar(var) && (pi.litClauses[posLit(var)].size() > 0 || pi.litClauses[negLit(var)].size() > 0)) {
 			if (tryBVE(var) != 0) {
 				print("fail BVE ", var + 1);
 				abort();

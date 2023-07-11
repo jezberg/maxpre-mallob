@@ -37,7 +37,13 @@ public:
 	 * compression of the variable indexes and enables the functionality to
 	 * alter the instance.
 	 */
-	PreprocessorInterface(const std::vector<std::vector<int> >& clauses, const std::vector<uint64_t>& weights, uint64_t topWeight_, bool inProcessMode_ = false);
+private:
+	void init(const std::vector<std::vector<int> >& clauses);
+public:
+	PreprocessorInterface(const std::vector<std::vector<int> >& clauses, const std::vector<uint64_t> & weights, uint64_t topWeight_, bool inProcessMode_ = false);
+	PreprocessorInterface(const std::vector<std::vector<int> >& clauses, const std::vector<std::pair<uint64_t, uint64_t> > & weights, uint64_t topWeight_, bool inProcessMode_ = false);
+	PreprocessorInterface(const std::vector<std::vector<int> >& clauses, const std::vector<std::vector<uint64_t> > & weights, uint64_t topWeight_, bool inProcessMode_ = false);
+
 
 	/* Preprocesses the current maxsat instance with the given techniques
 	 * string, loglevel and timelimit.
@@ -77,7 +83,8 @@ public:
 	bool labelToVar(int lbl);
 	// resets removed weight
 	bool resetRemovedWeight();
-	uint64_t getRemovedWeight();
+
+	vector<uint64_t> getRemovedWeight();
 
 	// Functions for enabling/disabling some functionality
 	void setBVEGateExtraction(bool use);
@@ -104,12 +111,21 @@ public:
 	uint64_t getUpperBound() { return preprocessor.bestCost; }
 
 	// Returns the current instance
-	void _getInstance(std::vector<std::vector<int> >& retClauses, std::vector<uint64_t> & retWeights); // doesn't convert lits
-	void getInstance(std::vector<std::vector<int> >& retClauses, std::vector<uint64_t>& retWeights, std::vector<int>& retLabels);
+private:
+	void getInstanceClausesAndLabels(std::vector<std::vector<int> >& retClauses, std::vector<int>& retLabels);
+public:
+	void _getInstance(std::vector<std::vector<int> >& retClauses, std::vector<uint64_t> & retWeights, bool addRemovedWeight = 0, bool sortLabelsFrequency = 0); // doesn't convert lits
+	void getInstance(std::vector<std::vector<int> >& retClauses, std::vector<uint64_t> & retWeights, std::vector<int>& retLabels, bool addRemovedWeight = 0, bool sortLabelsFrequency = 0);
+	void getInstance(std::vector<std::vector<int> >& retClauses, std::vector<std::pair<uint64_t, uint64_t> > & retWeights, std::vector<int>& retLabels, bool addRemovedWeight = 0, bool sortLabelsFrequency = 0);
+	void getInstance(std::vector<std::vector<int> >& retClauses, std::vector<std::vector<uint64_t> > & retWeights, std::vector<int>& retLabels, bool addRemovedWeight = 0, bool sortLabelsFrequency = 0);
+
 	/* Returns the assignment of the original variables given the assignment of
 	 * variable in the solution of the preprocessed istance
 	 */
 	std::vector<int> reconstruct(const std::vector<int>& trueLiterals, bool convertLits = 1);
+	/* Returns literals of the original instance fixed to true by preprocessing
+	*/
+	std::vector<int> getFixed();
 	std::vector<std::pair<int, std::pair<int, int> > > getCondEdges();
 
 	void printInstance(std::ostream& output, int outputFormat = 0);

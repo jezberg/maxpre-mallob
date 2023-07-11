@@ -50,8 +50,8 @@ public:
 	bool isTimeLimit();
 	void printTime(std::ostream& out);
 	void printInfo(std::ostream& out);
-	uint64_t initialWeightRange;
-	uint64_t weightRange;
+	std::vector<uint64_t> initialWeightRange;
+	std::vector<uint64_t> weightRange;
 };
 }
 #endif

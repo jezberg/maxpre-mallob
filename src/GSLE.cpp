@@ -46,12 +46,12 @@ bool Preprocessor::GSLEtryBackTrack(vector<vector<int> >& hs, vector<uint64_t>& 
 	return found;
 }
 
-int Preprocessor::tryGSLE(int lb) {
-	uint64_t lw = pi.labelWeight(litVariable(lb));
+int Preprocessor::tryGSLE(int lb, int objective) {
+	uint64_t lw = pi.labelWeight(litVariable(lb), objective);
 	for (int c : pi.litClauses[lb]) {
 		bool f = false;
 		for (int l : pi.clauses[c].lit) {
-			if (l != lb && pi.isLitLabel(litNegation(l)) && pi.labelWeight(litVariable(l)) <= lw) {
+			if (l != lb && pi.isLitLabel(litNegation(l), objective) && pi.labelWeight(litVariable(l), objective) <= lw && pi.labelIndexMask(litVariable(l)) == (1<<objective)) {
 				f = true;
 				break;
 			}
@@ -66,7 +66,7 @@ int Preprocessor::tryGSLE(int lb) {
 	for (int c : pi.litClauses[lb]) {
 		vector<int> s;
 		for (int l : pi.clauses[c].lit) {
-			if (l != lb && pi.isLitLabel(litNegation(l)) && pi.labelWeight(litVariable(l)) <= lw) {
+			if (l != lb && pi.isLitLabel(litNegation(l), objective) && pi.labelWeight(litVariable(l), objective) <= lw && pi.labelIndexMask(litVariable(l)) == (1<<objective)) {
 				bool ok = true; // if neg(l) is in a clause other than soft {neg(l)} and neg(lb) is not in that clause, don't check var(l)
 				for (unsigned i=1; i<pi.litClauses[litNegation(l)].size();++i) {
 					if (!binary_search(pi.clauses[pi.litClauses[litNegation(l)][i]].lit.begin(), pi.clauses[pi.litClauses[litNegation(l)][i]].lit.end(), litNegation(lb))) {
@@ -84,7 +84,7 @@ int Preprocessor::tryGSLE(int lb) {
 		if (s.size() == 1) {
 			if (sel.count(s[0]) == 0) {
 				sel.insert(s[0]);
-				selW += pi.labelWeight(s[0]);
+				selW += pi.labelWeight(s[0], objective);
 			}
 		}
 	}
@@ -121,7 +121,7 @@ int Preprocessor::tryGSLE(int lb) {
 	cc.erase(unique(cc.begin(), cc.end()), cc.end());
 	vector<uint64_t> laWeights(cc.size());
 	for (int i = 0; i < (int)cc.size(); i++) {
-		laWeights[i] = pi.labelWeight(cc[i]);
+		laWeights[i] = pi.labelWeight(cc[i], objective);
 	}
 	for (auto& se : hss) {
 		for (int& l : se) {
@@ -145,7 +145,7 @@ int Preprocessor::tryGSLE(int lb) {
 	}
 	if (ok) {
 		int rmClauses = 0;
-		if (pi.isLabel[litVariable(lb)] == VAR_TRUE) {
+		if (pi.labelPolarity(litVariable(lb), objective) == VAR_TRUE) {
 			rmClauses = setVariable(litVariable(lb), true);
 		}
 		else {
@@ -175,27 +175,29 @@ int Preprocessor::doGSLE() {
 	}
 	bool skip = false;
 	if (opt.skipTechnique > 0 && (int)checkVar.size() >= opt.skipTechnique * opt.skipSkipConstant) {
-		for (int tc = 0; tc < opt.skipTechnique; tc++) {
+		for (int objective = 0; objective < pi.objectives; ++objective) {
 			if (!rLog.requestTime(Log::Technique::GSLE)) break;
-			int var = checkVar[getRand(0, (int)checkVar.size() - 1)];
-			if (pi.isLabel[var] == VAR_UNDEFINED) continue;
-			if (pi.isVarRemoved(var)) continue;
-			if (pi.isLabel[var] == VAR_TRUE && pi.litClauses[negLit(var)].size() == 0){
-				setVariable(var, true);
-				removed++;
-				continue;
-			}
-			if (pi.isLabel[var] == VAR_FALSE && pi.litClauses[posLit(var)].size() == 0){
-				setVariable(var, false);
-				removed++;
-				continue;
-			}
-			
-			if (pi.isLabel[var] == VAR_TRUE) {
-				removed += tryGSLE(negLit(var));
-			}
-			else {
-				removed += tryGSLE(posLit(var));
+			for (int tc = 0; tc < opt.skipTechnique; tc++) {
+				if (!rLog.requestTime(Log::Technique::GSLE)) break;
+				int var = checkVar[getRand(0, (int)checkVar.size() - 1)];
+				if (pi.labelIndexMask(var) != (1<<objective)) continue;
+				if (pi.isVarRemoved(var)) continue;
+				if (pi.labelPolarity(var, objective) == VAR_TRUE && pi.litClauses[negLit(var)].size() == 0){
+					setVariable(var, true);
+					removed++;
+					continue;
+				}
+				if (pi.labelPolarity(var, objective) == VAR_FALSE && pi.litClauses[posLit(var)].size() == 0){
+					setVariable(var, false);
+					removed++;
+					continue;
+				}
+
+				if (pi.labelPolarity(var, objective) == VAR_TRUE) {
+					removed += tryGSLE(negLit(var), objective);
+				} else {
+					removed += tryGSLE(posLit(var), objective);
+				}
 			}
 		}
 		if (removed == 0) {
@@ -205,30 +207,30 @@ int Preprocessor::doGSLE() {
 	}
 	if (!skip) {
 		for (int var : checkVar) {
-			if (pi.isLabel[var] == VAR_UNDEFINED) continue;
+			if (pi.labelObjectives(var) != 1) continue;
 			if (pi.isVarRemoved(var)) continue;
 			if (!rLog.requestTime(Log::Technique::GSLE)) break;
-			
-			if (pi.isLabel[var] == VAR_TRUE && pi.litClauses[negLit(var)].size() == 0){
+
+			int objective = pi.labelObjective(var);
+			if (pi.labelPolarity(var, objective) == VAR_TRUE && pi.litClauses[negLit(var)].size() == 0){
 				setVariable(var, true);
 				removed++;
 				continue;
 			}
-			if (pi.isLabel[var] == VAR_FALSE && pi.litClauses[posLit(var)].size() == 0){
+			if (pi.labelPolarity(var, objective) == VAR_FALSE && pi.litClauses[posLit(var)].size() == 0){
 				setVariable(var, false);
 				removed++;
 				continue;
 			}
-			
-			if (pi.isLabel[var] == VAR_TRUE) {
-				removed += tryGSLE(negLit(var));
-			}
-			else {
-				removed += tryGSLE(posLit(var));
+
+			if (pi.labelPolarity(var, objective) == VAR_TRUE) {
+				removed += tryGSLE(negLit(var), objective);
+			} else {
+				removed += tryGSLE(posLit(var), objective);
 			}
 		}
 	}
-	
+
 	log(removed, " labels removed by GSLE");
 	rLog.stopTechnique(Log::Technique::GSLE);
 	return removed;
@@ -237,20 +239,20 @@ int Preprocessor::doGSLE() {
 void Preprocessor::doGSLE2() {
 	vector<int> lbs;
 	for (int var = 0; var < pi.vars; var++) {
-		if (pi.isLabel[var] != VAR_UNDEFINED && !pi.isVarRemoved(var)) {
+		if (pi.labelObjectives(var) == 1  && !pi.isVarRemoved(var)) {
 			lbs.push_back(var);
 		}
 	}
 	for (int var : lbs) {
-		if (pi.isLabel[var] == VAR_TRUE) {
-			if (tryGSLE(negLit(var))) {
+		int objective = pi.labelObjective(var);
+		if (pi.labelPolarity(var, objective) == VAR_TRUE) {
+			if (tryGSLE(negLit(var), objective)) {
 				print("fail GSLE");
 				print(var + 1);
 				abort();
 			}
-		}
-		else {
-			if (tryGSLE(posLit(var))) {
+		} else {
+			if (tryGSLE(posLit(var), objective)) {
 				print("fail GSLE");
 				print(var + 1);
 				abort();

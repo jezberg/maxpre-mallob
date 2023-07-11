@@ -152,7 +152,7 @@ int Preprocessor::doSIE() {
 void Preprocessor::doSIE2() {
 	for (int litX = 0; litX < pi.vars*2; litX++) {
 		for (int litY = 0; litY < pi.vars*2; litY++) {
-			if (litVariable(litX) != litVariable(litY) && pi.isLabel[litVariable(litX)] == VAR_UNDEFINED && pi.isLabel[litVariable(litY)] == VAR_UNDEFINED) {
+			if (litVariable(litX) != litVariable(litY) && !pi.isLabelVar(litVariable(litX)) && !pi.isLabelVar(litVariable(litY))) {
 				if (!pi.isVarRemoved(litVariable(litX)) && !pi.isVarRemoved(litVariable(litY))) {
 					if (try2SIE(litX, litY)) {
 						print("fail SIE ", litToDimacs(litX), " ", litToDimacs(litY));

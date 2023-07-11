@@ -1,13 +1,13 @@
 // TrimMaxSAT Technique
-// 
+//
 
 
 int getM(int n, double z) { // assumes 0 <= z < 1
-	if (n<=2) return 1; 
+	if (n<=2) return 1;
 	double p=sqrt(n);
 	int l = ((int)(2*p)-1); // size of candidate list
 	int i = ((int)(z*l))+1; // index (1-indexed) in the candidate list
-	
+
 	if (i<p) return n/i;
 	else     return ((int)(2*p))-i;
 }
@@ -20,7 +20,7 @@ int Preprocessor::tryTMS(vector<int>& neverSat) {
 			neverSat.pop_back();
 		}
 	}
-	
+
 	vector<bool> model;
 	vector<int> assumptions;
 	vector<vector<int> > sets;
@@ -28,7 +28,7 @@ int Preprocessor::tryTMS(vector<int>& neverSat) {
 	//statistics...
 	int SATcalls=0;
 	int UNSATcalls=0;
-	
+
 	double lb=0, z=0.5;
 	while (neverSat.size()) {
 		if (!rLog.requestTime(rLog.activeTechnique)) {
@@ -37,17 +37,17 @@ int Preprocessor::tryTMS(vector<int>& neverSat) {
 			return -1;
 		}
 		double timeLimit = rLog.allocatedTimeLeft(rLog.activeTechnique);
-		
+
 		// create set partition
 		int m = getM(neverSat.size(), z);
-		
+
 		sets.resize(m);
 		for (int i=0; i<m; ++i) sets[i].clear();
 		for (int i=0, j=0; i<(int)neverSat.size(); ++i) {
 			sets[j].push_back(neverSat[i]);
 			if (++j == m) j=0;
 		}
-		
+
 		// prepare sat solver
 		assumptions.resize(m);
 		for (int i=0; i<m; ++i) {
@@ -58,7 +58,7 @@ int Preprocessor::tryTMS(vector<int>& neverSat) {
 		}
 		int SAT = satSolver->solveLimited(assumptions, timeLimit);
         if (SAT==-1) return 0;
-		
+
 		if (SAT) {
 			++SATcalls;
 			// get model, remove satisfiable clauses from neverSat
@@ -90,7 +90,7 @@ int Preprocessor::tryTMS(vector<int>& neverSat) {
 				break;
 			}
 		}
-		
+
 		// remove added clauses...
 		vector<int> cl={0};
 		for (int i=0; i<m; ++i) {
@@ -98,11 +98,9 @@ int Preprocessor::tryTMS(vector<int>& neverSat) {
 			satSolver->addClause(cl);
 		}
 	}
-	
-	uint64_t w=0;
+
 	for (unsigned i=0; i<neverSat.size(); ++i){
-		if (pi.isLabel[litVariable(neverSat[i])]) {
-			w += pi.labelWeight(litVariable(neverSat[i]));
+		if (pi.isLabelVar(litVariable(neverSat[i]))) {
 			rLog.removeLabel(1);
 		} else {
 			rLog.removeVariable(1);
@@ -110,8 +108,8 @@ int Preprocessor::tryTMS(vector<int>& neverSat) {
 		}
 		setVariable(litVariable(neverSat[i]), !litValue(neverSat[i]));
 	}
-	
-	log(neverSat.size(), " unsatisfiable softs detected and deleted by TMS, total weight: ", w);
+
+	log(neverSat.size(), " unsatisfiable softs detected and deleted by TMS");
 	log(SATcalls+UNSATcalls, " SAT-solver calls done by TMS, SAT: ", SATcalls, ", UNSAT: ", UNSATcalls);
 	return neverSat.size();
 }
@@ -129,7 +127,7 @@ int Preprocessor::doBBTMS(int maxVars) {
 	prepareSatSolver();
 	stats["doBBTMS"]+=1;
 	stats["TMS_Vars_removed"]+=0;
-		
+
 	vector<pair<int, int> > vars;
 	for (int i=0; i<pi.vars; ++i) {
 		if (pi.isVarRemoved(i)) continue;
@@ -137,7 +135,7 @@ int Preprocessor::doBBTMS(int maxVars) {
 		vars.push_back({-((int)pi.litClauses[posLit(i)].size()+pi.litClauses[negLit(i)].size()), i});
 	}
 	sort(vars.begin(), vars.end());
-	
+
 	vector<int> litsPos;
 	vector<int> litsNeg;
 	for (unsigned i=0; i<vars.size(); ++i) {
@@ -149,11 +147,11 @@ int Preprocessor::doBBTMS(int maxVars) {
 			litsNeg.push_back(negLit(vars[i].S));
 		}
 	}
-	
+
 	int removedVars=0;
 	if (rLog.requestTime(Log::Technique::BBTMS)) removedVars+=tryTMS(litsPos);
 	if (rLog.requestTime(Log::Technique::BBTMS)) removedVars+=tryTMS(litsNeg);
-	
+
 	rLog.stopTechnique(Log::Technique::BBTMS);
 	return removedVars;
 }
@@ -165,24 +163,24 @@ int Preprocessor::doTMS() {
 		rLog.stopTechnique(Log::Technique::TMS);
 		return 0;
 	}
-	
+
 	stats["doTMS"]+=1;
 	stats["TMS_interrupted"]+=0;
 	prepareSatSolver();
-	
+
 	vector<int> bvars;
 	for (int i=0; i<pi.vars; ++i) {
-		if (!pi.isLabel[i] || pi.isVarRemoved(i)) continue;
-		if (pi.isLabel[i] == VAR_TRUE) {
+		if (!pi.isLabelVar(i) || pi.isVarRemoved(i)) continue;
+		if (pi.slabelPolarity(i) == VAR_TRUE || (pi.slabelPolarity(i) != VAR_FALSE && canSatLits.count(negLit(i)))) {
 			if (!canSatLits.count(posLit(i))) bvars.push_back(posLit(i));
-		} else if (pi.isLabel[i] == VAR_FALSE) {
+		} else {
 			if (!canSatLits.count(negLit(i))) bvars.push_back(negLit(i));
 		}
 	}
-	
+
 	int removedSofts=0;
 	if (rLog.requestTime(Log::Technique::TMS)) removedSofts=tryTMS(bvars);
-	
+
 	rLog.stopTechnique(Log::Technique::TMS);
 	return removedSofts;
 }

@@ -10,19 +10,51 @@
 using namespace std;
 namespace maxPreprocessor {
 
-Clause::Clause (vector<int> literals_, uint64_t weight_) : lit(literals_), weight(weight_) {
+Clause::Clause (vector<int> literals_, std::vector<uint64_t> weight_) : lit(literals_), weights(weight_) {
 	updateHash();
 }
 
 bool Clause::isHard() const {
-	return weight == HARDWEIGHT;
+	for (int i=0; i<(int)weights.size(); ++i) {
+		if (weights[i]!=HARDWEIGHT) return false;
+	}
+	return true;
+}
+
+bool Clause::isWeightless() const {
+	if (!weights.size()) return false; // hard clause
+	for (int i=0; i<(int)weights.size(); ++i){
+		if (weights[i]) return false;
+	}
+	return true;
+}
+
+uint64_t Clause::weight(int objective) const {
+	if (!weights.size()) return HARDWEIGHT;
+	if ((int)weights.size() <= objective) return 0;
+	return weights[objective];
+}
+
+void Clause::addWeight(uint64_t w, int objective) {
+	if ((int)weights.size() <= objective) weights.resize(objective+1);
+	weights[objective] += w;
+}
+
+void Clause::setWeight(uint64_t w, int objective) {
+	if ((int)weights.size() <= objective) weights.resize(objective+1);
+	weights[objective] = w;
 }
 
 void Clause::updateHash() {
 	hash = 0;
-	for (uint64_t l : lit) {
-		hash |= ((uint64_t)1 << (l&(uint64_t)63));
+	for (int l : lit) {
+		hash |= (1ull << (l&63));
 	}
+}
+
+
+void Clause::makeHard() {
+	weights.clear();
 }
 
 void Clause::addLiteral(int l) {
@@ -39,13 +71,13 @@ void Clause::addLiteral(int l) {
 		}
 	}
 	if (!f) lit.back() = l;
-	
+
 	updateHash();
 }
 
 void Clause::removeLiteral(int l) {
 	bool f = false;
-	
+
 	for (int i = 0; i < (int)lit.size(); i++) {
 		if (lit[i] == l) {
 			f = true;
@@ -56,7 +88,7 @@ void Clause::removeLiteral(int l) {
 			break;
 		}
 	}
-	
+
 	assert(f == true);
 	updateHash();
 }

@@ -10,10 +10,12 @@ const int VAR_UNDEFINED = 0;
 const int VAR_TRUE = 1;
 const int VAR_FALSE = 2;
 
-const int INPUT_FORMAT_WPMS = 1;
-const int INPUT_FORMAT_MS = 2;
-const int INPUT_FORMAT_SAT = 3;
-const int INPUT_FORMAT_WPMS22 = 4;
+const int INPUT_FORMAT_WPMS = 1;	// pre-22 wcnf file format
+const int INPUT_FORMAT_MS = 2;	  // cnf maximum satisfiability
+const int INPUT_FORMAT_SAT = 3;	  // cnf sat
+const int INPUT_FORMAT_WPMS22 = 4;// 22 wcnf file format
+const int INPUT_FORMAT_WMOO = 5;  // multiobjective optimization file format
+
 
 inline int litValue(int x) {
 	return !(x&1);

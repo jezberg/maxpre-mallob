@@ -38,6 +38,8 @@ public:
 		int BIG_tries;
 		int BVE_sizelimit;
 		int GSLE_tries;
+		int FLE_redTechniques;
+		double FLE_redTechniquesActivate;
 		int MRED_minLitsInClause, MRED_maxLitsInClause;
 		bool MRED_trimBefore;
 		int MRED_randomizedTries;
@@ -50,7 +52,7 @@ public:
 		Options() :
 				skipTechnique(0), skipSkipConstant(4), BVEgate(true), BVEsortMaxFirst(false),
 				hardenInModelSearch(false), modelSearchIterLimit(-1), modelSearchAsearchType(1),
-				BIG_tries(9), BVE_sizelimit(6), GSLE_tries(10),
+				BIG_tries(9), BVE_sizelimit(6), GSLE_tries(10), FLE_redTechniques(0), FLE_redTechniquesActivate(1),
 				MRED_minLitsInClause(3), MRED_maxLitsInClause(100), MRED_trimBefore(false), MRED_randomizedTries(0),
 				SE_Lim(64), SE_HashLim(10), SE_AmsLexLim(30), SE_HashAmsLexLim2(10000),
 				SSR_Lim(50000), SSR_HashLim(4), SSR_AmsLexLim(8), SSR_HashAmsLexLim2(10000),
@@ -76,6 +78,8 @@ public:
 			if ((intIt=intVars.find("BIG_tries")) != intVars.end()) { BIG_tries = intIt->second; intVars.erase(intIt); }
 			if ((intIt=intVars.find("BVE_sizelimit")) != intVars.end()) { BVE_sizelimit = intIt->second; intVars.erase(intIt); }
 			if ((intIt=intVars.find("GSLE_tries")) != intVars.end()) { GSLE_tries = intIt->second; intVars.erase(intIt); }
+			if ((intIt=intVars.find("FLE_redTechniques")) != intVars.end()) { FLE_redTechniques = intIt->second; intVars.erase(intIt); }
+			if ((doubleIt=doubleVars.find("FLE_redTechniquesActivate")) != doubleVars.end()) { FLE_redTechniquesActivate = doubleIt->second; doubleVars.erase(doubleIt); }
 			if ((intIt=intVars.find("MRED_minLitsInClause")) != intVars.end()) { MRED_minLitsInClause = intIt->second; intVars.erase(intIt); }
 			if ((intIt=intVars.find("MRED_maxLitsInClause")) != intVars.end()) { MRED_maxLitsInClause = intIt->second; intVars.erase(intIt); }
 			if ((boolIt=boolVars.find("MRED_trimBefore")) != boolVars.end()) { MRED_trimBefore = boolIt->second; boolVars.erase(boolIt); }
@@ -122,7 +126,13 @@ public:
 	void prepareSatSolver();
 
 
+private:
+	void init();
+public:
 	Preprocessor(const std::vector<std::vector<int> >& clauses_, const std::vector<uint64_t>& weights_, uint64_t topWeight_);
+	Preprocessor(const std::vector<std::vector<int> >& clauses_, const std::vector<std::pair<uint64_t, uint64_t> >& weights_, uint64_t topWeight_);
+	Preprocessor(const std::vector<std::vector<int> >& clauses_, const std::vector<std::vector<uint64_t> >& weights_, uint64_t topWeight_);
+
 
 	bool isTautology(const Clause& clause) const;
 
@@ -243,7 +253,7 @@ public:
 
 	void GSLEBT(int i, uint64_t w, std::vector<int>& sel, std::vector<uint64_t>& weights, std::vector<std::vector<int> >& hs, bool& found, uint64_t& itLim);
 	bool GSLEtryBackTrack(std::vector<std::vector<int> >& hs, std::vector<uint64_t>& weights, uint64_t w, uint64_t itLim);
-	int tryGSLE(int lb);
+	int tryGSLE(int lb, int objective);
 	int doGSLE();
 	void doGSLE2();
 
@@ -253,11 +263,12 @@ public:
 	void tryLFF(int lb);
 	void findLabeledFormula();
 
-	int tryLS(int lbl);
+	int tryLS(int lit);
 	void tryLSBCE(int lit, std::unordered_set<int>& deletedClauses, std::unordered_set<int>& touchedList, std::vector<std::pair<int, int> >& blockedClauses);
 	int doLS();
 
-	int tryAM1(vector<int>& vars, bool weight_aware, bool stratification, bool greedy_cost);
+	int tryAM1(vector<int>& vars, int objective, bool weight_aware, bool stratification, bool greedy_cost);
+
 	int doAM1(bool weight_aware, bool stratification, bool greedy_cost);
 
 	unordered_set<int> canSatLits;
@@ -268,8 +279,8 @@ public:
 
 	int redSatSolverCalls; // statistics
 	bool checkPositiveReduct(const vector<int>& literals, const vector<int>& assumptions);
-	bool checkExtendedPositiveReduct(const vector<int>& literals, const vector<int>& assumptions);
-	bool checkFilteredPositiveReduct(vector<int>& literals, const vector<int>& assumptions, bool f2=false);
+	bool checkExtendedPositiveReduct(const vector<int>& literals, const vector<int>& assumptions, const vector<int>& eqs = vector<int>());
+	bool checkFilteredPositiveReduct(vector<int>& literals, const vector<int>& assumptions, const vector<int>& eqs = vector<int>(), bool f2=false);
 	bool checkTrimmedFilteredPositiveReduct(const vector<int>& literals, const vector<int>& assumptions, bool f2=false);
 	int trimReductClause(vector<int>& clause);
 	int findREDPartitionForLit(int lit, unsigned n, vector<pair<vector<pair<uint64_t, int> >, vector<int> > >& clauses, uint64_t mcost);
@@ -297,11 +308,16 @@ public:
 	int doHARD();
 
 	int flePos;
+	int fleActiveTechniques;
+	bool testBinaryFPR(int x, int y, const vector<int>& up_neg_x, const vector<int>& up_neg_y, bool fullFilter);
+	bool testBinaryRedundancy(int lit, int l, const vector<int>& upn, const vector<int>& eqLits, int redTechniques);
 	void replaceLit(int lit1, int lit2);
 	void handleEqLits(vector<int>& lits);
 	int tryFLE(int lit, vector<int>& up, bool doRLE);
-	int tryFLE(int var, bool doRLE, bool findEqs, bool findRedEqs, bool findForced, bool findRedForced);
-	int doFLE(bool doRLE, bool findEqs, bool findRedEqs, bool findForced, bool findRedForced);
+
+	int tryFLE(int var, bool doRLE, bool findEqs, bool findRedEqs, bool findForced, bool findRedForced, int redTechniques);
+	int doFLE(bool doRLE, bool findEqs, bool findRedEqs, bool findForced, bool findRedForced, int redTechniques);
+
 
 	void CBIGdfs1(int x, std::vector<int>& ns, std::vector<std::pair<int, std::pair<int, int> > >& condEdges);
 	int findConditionalGraph(int lit, std::vector<std::pair<int, std::pair<int, int> > >& condEdges);
@@ -312,7 +328,7 @@ public:
 	bool validTechniques(std::string techniques) const;
 	bool validPreTechniques(std::string techniques) const;
 
-	PreprocessedInstance getPreprocessedInstance();
+	PreprocessedInstance getPreprocessedInstance(bool addRemovedWeight, bool sortLabelsFrequency);
 
 	int doPreprocess(const std::string& techniques, int l, int r, bool debug, bool topLevel);
 	void preprocess(std::string techniques, double timeLimit, bool debug, bool BVEgate, bool initialCall, bool matchLabels);

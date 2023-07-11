@@ -14,7 +14,7 @@ bool Preprocessor::isSubsumed(const vector<int>& a, const vector<int>& b) const 
 // Slow implementation
 int Preprocessor::trySESlow(int lit) {
 	vector<int> toRemove;
-	
+
 	for (int c1 : pi.litClauses[lit]) {
 		for (int c2 : pi.litClauses[lit]) {
 			if (c1 <= c2) continue;
@@ -56,7 +56,7 @@ void Preprocessor::trySEHash(vector<int>& clauses, int tLit, vector<int>& toRemo
 			has[h].push_back({c, pi.clauses[c].hash});
 		}
 	}
-	
+
 	for (int c1 : clauses) {
 		int64_t h = 0;
 		uint64_t h64 = pi.clauses[c1].hash;
@@ -75,18 +75,17 @@ void Preprocessor::trySEHash(vector<int>& clauses, int tLit, vector<int>& toRemo
 						else if(pi.clauses[c1].isHard()) {
 							toRemove.push_back(c2.F);
 							if (pi.isLabelClause(c2.F)) {
-								pi.isLabel[litVariable(pi.clauses[c2.F].lit[0])] = VAR_UNDEFINED;
+								pi.unLabelPolarity(litVariable(pi.clauses[c2.F].lit[0]), litPolarity(pi.clauses[c2.F].lit[0]));
 							}
 						}
 						else if(pi.clauses[c2.F].isHard()) {
 							toRemove.push_back(c1);
 							if (pi.isLabelClause(c1)) {
-								pi.isLabel[litVariable(pi.clauses[c1].lit[0])] = VAR_UNDEFINED;
+								pi.unLabelPolarity(litVariable(pi.clauses[c1].lit[0]), litPolarity(pi.clauses[c1].lit[0]));
 							}
 						}
 						else {
-							pi.clauses[c1].weight += pi.clauses[c2.F].weight;
-							pi.clauses[c2.F].weight = 0;
+							pi.pourAllWeight(c2.F, c1);
 							toRemove.push_back(c2.F);
 						}
 					}
@@ -121,18 +120,17 @@ void Preprocessor::trySEAmsLex(vector<int>& clauses, vector<int>& toRemove) {
 					else if(pi.clauses[c1].isHard()) {
 						toRemove.push_back(c2);
 						if (pi.isLabelClause(c2)) {
-							pi.isLabel[litVariable(pi.clauses[c2].lit[0])] = VAR_UNDEFINED;
+							pi.unLabelPolarity(litVariable(pi.clauses[c2].lit[0]), litPolarity(pi.clauses[c2].lit[0]));
 						}
 					}
 					else if(pi.clauses[c2].isHard()) {
 						toRemove.push_back(c1);
 						if (pi.isLabelClause(c1)) {
-							pi.isLabel[litVariable(pi.clauses[c1].lit[0])] = VAR_UNDEFINED;
+							pi.unLabelPolarity(litVariable(pi.clauses[c1].lit[0]), litPolarity(pi.clauses[c1].lit[0]));
 						}
 					}
 					else {
-						pi.clauses[c1].weight += pi.clauses[c2].weight;
-						pi.clauses[c2].weight = 0;
+						pi.pourAllWeight(c2, c1);
 						toRemove.push_back(c2);
 					}
 				}
@@ -164,18 +162,17 @@ void Preprocessor::trySE(vector<int>& clauses, vector<int>& toRemove) {
 					else if(pi.clauses[c1].isHard()) {
 						toRemove.push_back(c2);
 						if (pi.isLabelClause(c2)) {
-							pi.isLabel[litVariable(pi.clauses[c2].lit[0])] = VAR_UNDEFINED;
+							pi.unLabelPolarity(litVariable(pi.clauses[c2].lit[0]), litPolarity(pi.clauses[c2].lit[0]));
 						}
 					}
 					else if(pi.clauses[c2].isHard()) {
 						toRemove.push_back(c1);
 						if (pi.isLabelClause(c1)) {
-							pi.isLabel[litVariable(pi.clauses[c1].lit[0])] = VAR_UNDEFINED;
+							pi.unLabelPolarity(litVariable(pi.clauses[c1].lit[0]), litPolarity(pi.clauses[c1].lit[0]));
 						}
 					}
 					else {
-						pi.clauses[c1].weight += pi.clauses[c2].weight;
-						pi.clauses[c2].weight = 0;
+						pi.pourAllWeight(c2, c1);
 						toRemove.push_back(c2);
 					}
 				}
@@ -204,7 +201,7 @@ void Preprocessor::trySEgen(int lit, vector<int>& toRemove) {
 			avg += pi.clauses[c].lit.size();
 		}
 		avg /= (int)pi.litClauses[lit].size();
-		
+
 		if (avg <= opt.SE_HashLim) {
 			trySEHash(pi.litClauses[lit], lit, toRemove);
 		}
@@ -228,7 +225,7 @@ int Preprocessor::doSE() {
 		rLog.stopTechnique(Log::Technique::SE);
 		return 0;
 	}
-	
+
 	vector<int> checkLit = pi.tl.getModLiterals("SE");
 	if (rLog.isTimeLimit()) {
 		auto cmp = [&](int lit1, int lit2) {
