@@ -531,26 +531,24 @@ void printHelp(ostream& out, map<string, int>& intVars, map<string, bool>& boolV
 	out<<"-outputformat (default: wpms22)"<<endl;
 	if (!shrt) {
 		out<<"\tstring: {auto, wpms, wpms22, sat, moo}"<<endl;
-		out<<"\tThe output format of preprocessed instance file"<<endl;
-		out<<"\tBy default the preprocessor always gives the output in weighted partial MaxSAT format"<<endl;
+		out<<"\tThe output format of preprocessed instance file."<<endl;
+		out<<"\tBy default the preprocessor always gives the output in weighted partial MaxSAT format."<<endl;
 		out<<"\tOption 'auto' sets the format according to input file format."<<endl;
-		out<<"\tOutput in SAT format by setting this to original when preprocessing SAT instances"<<endl;
+		out<<"\tOutput in SAT format by setting this to original when preprocessing SAT instances."<<endl;
 		out<<endl;
 	}
-	out<<"-solutionformat (default: auto)"<<endl;
+	out<<"-solutionformat (default: wpms22 on reconstruct mode, auto on solve mode)"<<endl;
 	if (!shrt) {
-		out<<"\tstring: {auto, wpms, wpms22, sat, moo}"<<endl;
-		out<<"\tThe format in which the solution is printed when 'solve' or 'reconstruct' format is used"<<endl;
+		out<<"\tstring: {auto, wpms, wpms22}"<<endl;
+		out<<"\tThe format in which the solution is printed when 'solve' or 'reconstruct' mode is used."<<endl;
 		out<<"\tOption 'auto' sets the format according to the outputformat value."<<endl;
-		out<<"\tBy default the preprocessor always sets the value of solution format to be same as outputformat"<<endl;
 		out<<endl;
 	}
-	out<<"-solversolutionformat (default: auto)"<<endl;
+	out<<"-solversolutionformat (default: wpms22 on reconstruct mode, auto on solve mode)"<<endl;
 	if (!shrt) {
-		out<<"\tstring: {auto, wpms, wpms22, sat, moo}"<<endl;
-		out<<"\tThe format which the solver outputs its solution (when 'solve' or 'reconstruct' format is used)"<<endl;
+		out<<"\tstring: {auto, wpms, wpms22}"<<endl;
+		out<<"\tThe format in which the solver outputs its solution (when 'solve' or 'reconstruct' mode is used). "<<endl;
 		out<<"\tOption 'auto' sets the format according to the outputformat value."<<endl;
-		out<<"\tBy default the preprocessor always assumes solver outputs solutionformat "<<endl;
 		out<<endl;
 	}
 	out<<"-timelimit (default: inf)"<<endl;
@@ -832,8 +830,8 @@ int main(int argc, char* argv[]){
 		}
 	}
 	if (type == "solve") {
-		int solutionFormat = parseSolutionFormat(flags, maxPreprocessor::INPUT_FORMAT_WPMS22, outputFormat);
-		int solverSolutionFormat = parseSolverSolutionFormat(flags, maxPreprocessor::INPUT_FORMAT_WPMS22, outputFormat);
+		int solutionFormat = parseSolutionFormat(flags, outputFormat, outputFormat);
+		int solverSolutionFormat = parseSolverSolutionFormat(flags, outputFormat, outputFormat);
 		string solver;
 		if (flags.count("solver") && flags["solver"].size() > 0) {
 			solver = flags["solver"];
