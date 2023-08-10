@@ -534,7 +534,6 @@ void printHelp(ostream& out, map<string, int>& intVars, map<string, bool>& boolV
 		out<<"\tThe output format of preprocessed instance file."<<endl;
 		out<<"\tBy default the preprocessor always gives the output in weighted partial MaxSAT format."<<endl;
 		out<<"\tOption 'auto' sets the format according to input file format."<<endl;
-		out<<"\tOutput in SAT format by setting this to original when preprocessing SAT instances."<<endl;
 		out<<endl;
 	}
 	out<<"-solutionformat (default: wpms22 on reconstruct mode, auto on solve mode)"<<endl;

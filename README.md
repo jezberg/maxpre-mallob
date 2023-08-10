@@ -66,19 +66,16 @@ The file to write the solution reconstruction map
 
 Should the problem be preprocessed as a MaxSAT, multi-objective MaxSAT, or SAT instance
 
-`-outputformat` (string: `{original}`, default: `wpms22`)
+`-outputformat` (string: `{auto, wpms, wpms22, sat, moo}`, default: `wpms22`)
 Defines the format in which the preprocessed instance is printed.
-The value must be one of `auto`, `wpms`, `wpms22`, `sat`, `moo`.
 When option `auto` is selected, the outputformat will be same as the format of the input file.
 
-`-solutionformat` (string: `{original}`, default: `wpms22`/`auto`)
+`-solutionformat` (string: `{auto, wpms, wpms22}`, default: `wpms22`/`auto`)
 Defines the format in which the solution is printed when `solve` or `reconstruct` mode is used.
-The value must be one of `auto`, `wpms`, `wpms22`.
 The option `auto` is available only in `solve` mode (where it is the default value), and when it is selected, the format will be same as the outputformat.
 
-`-solversolutionformat` (string: `{original}`, default: `wpms22`/`auto`)
+`-solversolutionformat` (string: `{auto, wpms, wpms22}`, default: `wpms22`/`auto`)
 Defines the format of the solver output when `solve` or `reconstruct` mode is used.
-The value must be one of `auto`, `wpms`, `wpms22`.
 The option `auto` is available only in `solve` mode (where it is the default value), and when it is selected, the format will be same as the outputformat.
 
 `-timelimit` (double: `[0, 500000000]`, default: `inf`)
