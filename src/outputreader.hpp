@@ -12,7 +12,7 @@ public:
 	std::vector<int> trueLits;
 	uint64_t ansW;
 	
-	int readSolution(std::istream& input);
+	int readSolution(std::istream& input, int outputFormat);
 };
 }
 #endif

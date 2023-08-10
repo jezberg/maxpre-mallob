@@ -223,25 +223,25 @@ int parseSkipTechnique(map<string, string>& flags) {
 bool parseBVEsortMaxFirst(map<string, string>& flags) {
   bool BVEsortMaxFirst = false;
   if (flags.count("bvesortmaxfirst")) {
-    if (flags["bvesortmaxfirst"] == "1") {
-      BVEsortMaxFirst = true;
-      cout<<"c BVEsortMaxFirst enabled"<<endl;
-      cerr<<"BVEsortMaxFirst enabled"<<endl;
-    }
-    else if (flags["bvesortmaxfirst"] == "0") {
-      BVEsortMaxFirst = false;
-      cout<<"c BVEsortMaxFirst disabled"<<endl;
-      cerr<<"BVEsortMaxFirst disabled"<<endl;
-    }
-    else {
-      cout<<"Invalid bvesortmaxfirst flag"<<endl;
-      cerr<<"Invalid bvesortmaxfirst flag"<<endl;
-      exit(0);
-    }
+	if (flags["bvesortmaxfirst"] == "1") {
+	  BVEsortMaxFirst = true;
+	  cout<<"c BVEsortMaxFirst enabled"<<endl;
+	  cerr<<"BVEsortMaxFirst enabled"<<endl;
+	}
+	else if (flags["bvesortmaxfirst"] == "0") {
+	  BVEsortMaxFirst = false;
+	  cout<<"c BVEsortMaxFirst disabled"<<endl;
+	  cerr<<"BVEsortMaxFirst disabled"<<endl;
+	}
+	else {
+	  cout<<"Invalid bvesortmaxfirst flag"<<endl;
+	  cerr<<"Invalid bvesortmaxfirst flag"<<endl;
+	  exit(0);
+	}
   }
   else {
-    cout<<"c No -bvesortmaxfirst given, defaulting to disabled"<<endl;
-    cerr<<"No -bvesortmaxfirst given, defaulting to disabled"<<endl;
+	cout<<"c No -bvesortmaxfirst given, defaulting to disabled"<<endl;
+	cerr<<"No -bvesortmaxfirst given, defaulting to disabled"<<endl;
   }
   return BVEsortMaxFirst;
 }
@@ -249,21 +249,21 @@ bool parseBVEsortMaxFirst(map<string, string>& flags) {
 int parseBVElocalGrow(map<string, string>& flags) {
   int BVElocalGrow = 0;
   if (flags.count("bvelocalgrow")) {
-    stringstream ss;
-    ss<<flags["bvelocalgrow"];
-    ss>>BVElocalGrow;
-    cout<<"c BVElocalgrow "<<BVElocalGrow<<endl;
-    cerr<<"BVElocalgrow "<<BVElocalGrow<<endl;
+	stringstream ss;
+	ss<<flags["bvelocalgrow"];
+	ss>>BVElocalGrow;
+	cout<<"c BVElocalgrow "<<BVElocalGrow<<endl;
+	cerr<<"BVElocalgrow "<<BVElocalGrow<<endl;
 
-    if (BVElocalGrow <= 0 || BVElocalGrow > 1000000000) {
-      cout<<"Invalid bvelocalgrow flag"<<endl;
-      cerr<<"Invalid bvelocalgrow flag"<<endl;
-      exit(0);
-    }
+	if (BVElocalGrow <= 0 || BVElocalGrow > 1000000000) {
+	  cout<<"Invalid bvelocalgrow flag"<<endl;
+	  cerr<<"Invalid bvelocalgrow flag"<<endl;
+	  exit(0);
+	}
   }
   else {
-    cout<<"c No -bvelocalgrow given, defaulting to disabled"<<endl;
-    cerr<<"No -bvelocalgrow given, defaulting to disabled"<<endl;
+	cout<<"c No -bvelocalgrow given, defaulting to disabled"<<endl;
+	cerr<<"No -bvelocalgrow given, defaulting to disabled"<<endl;
   }
   return BVElocalGrow;
 }
@@ -271,21 +271,21 @@ int parseBVElocalGrow(map<string, string>& flags) {
 int parseBVEglobalGrow(map<string, string>& flags) {
   int BVEglobalGrow = 0;
   if (flags.count("bveglobalgrow")) {
-    stringstream ss;
-    ss<<flags["bveglobalgrow"];
-    ss>>BVEglobalGrow;
-    cout<<"c BVEglobalgrow "<<BVEglobalGrow<<endl;
-    cerr<<"BVEglobalgrow "<<BVEglobalGrow<<endl;
+	stringstream ss;
+	ss<<flags["bveglobalgrow"];
+	ss>>BVEglobalGrow;
+	cout<<"c BVEglobalgrow "<<BVEglobalGrow<<endl;
+	cerr<<"BVEglobalgrow "<<BVEglobalGrow<<endl;
 
-    if (BVEglobalGrow <= 0 || BVEglobalGrow > 1000000000) {
-      cout<<"Invalid bveglobalgrow flag"<<endl;
-      cerr<<"Invalid bveglobalgrow flag"<<endl;
-      exit(0);
-    }
+	if (BVEglobalGrow <= 0 || BVEglobalGrow > 1000000000) {
+	  cout<<"Invalid bveglobalgrow flag"<<endl;
+	  cerr<<"Invalid bveglobalgrow flag"<<endl;
+	  exit(0);
+	}
   }
   else {
-    cout<<"c No -bveglobalgrow given, defaulting to disabled"<<endl;
-    cerr<<"No -bveglobalgrow given, defaulting to disabled"<<endl;
+	cout<<"c No -bveglobalgrow given, defaulting to disabled"<<endl;
+	cerr<<"No -bveglobalgrow given, defaulting to disabled"<<endl;
   }
   return BVEglobalGrow;
 }
@@ -395,6 +395,69 @@ int parseVerb(map<string, string>& flags) {
 	return verb;
 }
 
+
+int parseIOFormat(string option, string v, int defaultValue, int autoValue) {
+	int ioformat = defaultValue;
+
+	if (v == "auto")	{
+		if (autoValue==-1) {
+			cout << "c " << option << " option 'auto' not available with the selected mode" << endl;
+			cout << option << " option 'auto' not available with the selected mode" << endl;
+		} else {
+			ioformat = autoValue;
+		}
+	}
+
+	else if (v == "wpms")   ioformat = maxPreprocessor::INPUT_FORMAT_WPMS;
+	else if (v == "wpms22") ioformat = maxPreprocessor::INPUT_FORMAT_WPMS22;
+	else if (v == "sat")    ioformat = maxPreprocessor::INPUT_FORMAT_SAT;
+	else if (v == "moo")    ioformat = maxPreprocessor::INPUT_FORMAT_WMOO;
+	else {
+		cout << "c invalid " << option << " value " << v << endl;
+		cerr << "Invalid  " << option << "value " << v << endl;
+	}
+
+
+	if (ioformat == maxPreprocessor::INPUT_FORMAT_MS) {
+		// preprocessor works in labeled cnf so it cannot output pure maxsat
+		ioformat = maxPreprocessor::INPUT_FORMAT_WPMS;
+	}
+	string outf;
+	if (ioformat == maxPreprocessor::INPUT_FORMAT_WPMS) {
+		outf = "weighted partial Max-SAT (pre 2022)";
+	}
+	else if (ioformat == maxPreprocessor::INPUT_FORMAT_SAT) {
+		outf = "SAT";
+	}
+	else if (ioformat == maxPreprocessor::INPUT_FORMAT_WPMS22) {
+		outf = "weighted partial Max-SAT (2022 ->)";
+	}
+	else if (ioformat == maxPreprocessor::INPUT_FORMAT_WMOO) {
+		outf = "multiobjective optimization";
+	}
+	else {
+		return 0;
+	}
+	cout<<"c " << option << " " << outf <<endl;
+	cerr<< option << outf << endl;
+	return ioformat;
+}
+
+int parseOutputFormat(map<string, string>& flags, int defaultValue, int autoValue) {
+	if (flags.count("outputformat")) return parseIOFormat("outputformat", flags["outputformat"], defaultValue, autoValue);
+	return defaultValue;
+}
+
+int parseSolutionFormat(map<string, string>& flags, int defaultValue, int autoValue) {
+	if (flags.count("solutionformat")) return parseIOFormat("solutionformat", flags["solutionformat"], defaultValue, autoValue);
+	return defaultValue;
+}
+
+int parseSolverSolutionFormat(map<string, string>& flags, int defaultValue, int autoValue) {
+	if (flags.count("solversolutionformat")) return parseIOFormat("solversolutionformat", flags["solversolutionformat"], defaultValue, autoValue);
+	return defaultValue;
+}
+
 void printHelp(ostream& out, map<string, int>& intVars, map<string, bool>& boolVars, map<string, double>& doubleVars, map<string, uint64_t> uint64Vars, bool shrt) {
 	out<<"The first argument is the instance file, the second is preprocess, reconstruct or solve."<<endl;
 	out<<endl;
@@ -467,9 +530,27 @@ void printHelp(ostream& out, map<string, int>& intVars, map<string, bool>& boolV
 	}
 	out<<"-outputformat (default: wpms22)"<<endl;
 	if (!shrt) {
-		out<<"\tstring: {original, wpms, wpms22, sat, moo}"<<endl;
+		out<<"\tstring: {auto, wpms, wpms22, sat, moo}"<<endl;
+		out<<"\tThe output format of preprocessed instance file"<<endl;
 		out<<"\tBy default the preprocessor always gives the output in weighted partial MaxSAT format"<<endl;
+		out<<"\tOption 'auto' sets the format according to input file format."<<endl;
 		out<<"\tOutput in SAT format by setting this to original when preprocessing SAT instances"<<endl;
+		out<<endl;
+	}
+	out<<"-solutionformat (default: auto)"<<endl;
+	if (!shrt) {
+		out<<"\tstring: {auto, wpms, wpms22, sat, moo}"<<endl;
+		out<<"\tThe format in which the solution is printed when 'solve' or 'reconstruct' format is used"<<endl;
+		out<<"\tOption 'auto' sets the format according to the outputformat value."<<endl;
+		out<<"\tBy default the preprocessor always sets the value of solution format to be same as outputformat"<<endl;
+		out<<endl;
+	}
+	out<<"-solversolutionformat (default: auto)"<<endl;
+	if (!shrt) {
+		out<<"\tstring: {auto, wpms, wpms22, sat, moo}"<<endl;
+		out<<"\tThe format which the solver outputs its solution (when 'solve' or 'reconstruct' format is used)"<<endl;
+		out<<"\tOption 'auto' sets the format according to the outputformat value."<<endl;
+		out<<"\tBy default the preprocessor always assumes solver outputs solutionformat "<<endl;
 		out<<endl;
 	}
 	out<<"-timelimit (default: inf)"<<endl;
@@ -601,15 +682,19 @@ int main(int argc, char* argv[]){
 	assert(type == "solve" || type == "preprocess" || type == "reconstruct");
 	string file(argv[1]);
 	if (type == "reconstruct") {
+		int solutionFormat = parseSolutionFormat(flags, maxPreprocessor::INPUT_FORMAT_WPMS22, -1);
+		int solverSolutionFormat = parseSolverSolutionFormat(flags, maxPreprocessor::INPUT_FORMAT_WPMS22, -1);
 		if (!flags.count("mapfile")) {
 			cout<<"Give mapfile with -mapfile= flag"<<endl;
 			cerr<<"Give mapfile with -mapfile= flag"<<endl;
 			return 0;
 		}
+
+
 		string mapFile = flags["mapfile"];
 		maxPreprocessor::OutputReader opr;
 		ifstream in(file);
-		int readStatus = opr.readSolution(in);
+		int readStatus = opr.readSolution(in, solverSolutionFormat);
 		in.close();
 		if (readStatus > 0) {
 			cout<<"Failed to parse solution"<<endl;
@@ -646,7 +731,7 @@ int main(int argc, char* argv[]){
 					mapF>>trace.data[i][j];
 				}
 			}
-			trace.printSolution(cout, trueLits, opr.ansW, ppVars, originalVars);
+			trace.printSolution(cout, trueLits, opr.ansW, ppVars, originalVars, solutionFormat);
 		}
 		return 0;
 	}
@@ -698,42 +783,7 @@ int main(int argc, char* argv[]){
 		return 0;
 	}
 
-	int outputFormat = maxPreprocessor::INPUT_FORMAT_WPMS22;
-	if (flags.count("outputformat")) {
-		if (flags["outputformat"] == "original")	outputFormat = inputReader.inputFormat;
-		else if (flags["outputformat"] == "wpms")	outputFormat = maxPreprocessor::INPUT_FORMAT_WPMS;
-		else if (flags["outputformat"] == "wpms22")	outputFormat = maxPreprocessor::INPUT_FORMAT_WPMS22;
-		else if (flags["outputformat"] == "sat")	outputFormat = maxPreprocessor::INPUT_FORMAT_SAT;
-		else if (flags["outputformat"] == "moo")	outputFormat = maxPreprocessor::INPUT_FORMAT_WMOO;
-		else {
-			cout << "c invalid outputformat value " << flags["outputformat"] << endl;
-			cerr << "Invalid outputformat value " << flags["outputformat"] << endl;
-		}
-
-
-		if (outputFormat == maxPreprocessor::INPUT_FORMAT_MS) {
-			// preprocessor works in labeled cnf so it cannot output pure maxsat
-			outputFormat = maxPreprocessor::INPUT_FORMAT_WPMS;
-		}
-		string outf;
-		if (outputFormat == maxPreprocessor::INPUT_FORMAT_WPMS) {
-			outf = "weighted partial Max-SAT (pre 2022)";
-		}
-		else if (outputFormat == maxPreprocessor::INPUT_FORMAT_SAT) {
-			outf = "SAT";
-		}
-		else if (outputFormat == maxPreprocessor::INPUT_FORMAT_WPMS22) {
-			outf = "weighted partial Max-SAT (2022 ->)";
-		}
-		else if (outputFormat == maxPreprocessor::INPUT_FORMAT_WMOO) {
-			outf = "multiobjective optimization";
-		}
-		else {
-			return 0;
-		}
-		cout<<"c Outputformat "<<outf<<endl;
-		cerr<<"Outputformat "<<outf<<endl;
-	}
+	int outputFormat = parseOutputFormat(flags, maxPreprocessor::INPUT_FORMAT_WPMS22, inputReader.inputFormat);
 
 	int verb = parseVerb(flags);
 
@@ -782,6 +832,8 @@ int main(int argc, char* argv[]){
 		}
 	}
 	if (type == "solve") {
+		int solutionFormat = parseSolutionFormat(flags, maxPreprocessor::INPUT_FORMAT_WPMS22, outputFormat);
+		int solverSolutionFormat = parseSolverSolutionFormat(flags, maxPreprocessor::INPUT_FORMAT_WPMS22, outputFormat);
 		string solver;
 		if (flags.count("solver") && flags["solver"].size() > 0) {
 			solver = flags["solver"];
@@ -819,7 +871,7 @@ int main(int argc, char* argv[]){
 
 		maxPreprocessor::OutputReader opr;
 		ifstream in(solFile);
-		readStatus = opr.readSolution(in);
+		readStatus = opr.readSolution(in, solverSolutionFormat);
 		in.close();
 		if (readStatus > 0) {
 			cout<<"Failed to parse solution"<<endl;
@@ -831,7 +883,7 @@ int main(int argc, char* argv[]){
 			cout<<"s UNSATISFIABLE"<<endl;
 		}
 		else {
-			pif.printSolution(opr.trueLits, cout, opr.ansW);
+			pif.printSolution(opr.trueLits, cout, opr.ansW, solutionFormat);
 		}
 		cerr<<"Preprocess time: "<<preprocessTimer.getTime().count()<<", Solve time: "<<solveTimer.getTime().count()<<endl;
 		if (verb > 0) pif.printTimeLog(cerr);

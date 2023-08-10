@@ -129,7 +129,7 @@ public:
 	std::vector<std::pair<int, std::pair<int, int> > > getCondEdges();
 
 	void printInstance(std::ostream& output, int outputFormat = 0);
-	void printSolution(const std::vector<int>& trueLiterals, std::ostream& output, uint64_t ansWeight);
+	void printSolution(const std::vector<int>& trueLiterals, std::ostream& output, uint64_t ansWeight, int outputFormat);
 	void printMap(std::ostream& output);
 	void printTechniqueLog(std::ostream& output);
 	void printTimeLog(std::ostream& output);

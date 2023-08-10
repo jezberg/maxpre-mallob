@@ -254,14 +254,14 @@ uint64_t cmaxpre_get_upper_bound(CMaxPre *handle) {
   return ((Wrapper *)handle)->preprocessor->getUpperBound();
 }
 
-void cmaxpre_print_instance_stdout(CMaxPre *handle) {
-  ((Wrapper *)handle)->preprocessor->printInstance(cout);
+void cmaxpre_print_instance_stdout(CMaxPre *handle, int instanceFormat) {
+  ((Wrapper *)handle)->preprocessor->printInstance(cout, instanceFormat);
 }
 
-void cmaxpre_print_solution_stdout(CMaxPre *handle, uint64_t weight) {
+void cmaxpre_print_solution_stdout(CMaxPre *handle, uint64_t weight, int solFormat) {
   Wrapper *wrapper = (Wrapper *)handle;
   wrapper->preprocessor->printSolution(wrapper->prepro_assignment, cout,
-                                       weight);
+                                       weight, solFormat);
   wrapper->prepro_assignment.clear();
 }
 

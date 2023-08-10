@@ -23,7 +23,7 @@ public:
 	void removeWeight(const std::vector<uint64_t>& weight);
 	std::pair<std::vector<int>, uint64_t> getSolution(const std::vector<int>& trueLits, uint64_t weight, int vars, int originalVars);
 	std::vector<int> getFixed();
-	void printSolution(std::ostream& output, const std::vector<int>& trueLits, uint64_t weight, int vars, int originalVars);
+	void printSolution(std::ostream& output, const std::vector<int>& trueLits, uint64_t weight, int vars, int originalVars, int outputFormat);
 };
 }
 #endif

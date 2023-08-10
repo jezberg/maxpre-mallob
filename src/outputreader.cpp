@@ -4,11 +4,12 @@
 #include <cstdint>
 
 #include "outputreader.hpp"
+#include "global.hpp"
 
 using namespace std;
 namespace maxPreprocessor {
 
-int OutputReader::readSolution(istream& input) {
+int OutputReader::readSolution(istream& input, int outputFormat) {
 	status = 0;
 	string line;
 	while (getline(input, line)) {
@@ -33,14 +34,26 @@ int OutputReader::readSolution(istream& input) {
 			}
 		}
 		if (line[0] == 'v') {
-			stringstream ss;
-			ss<<line;
-			string temp;
-			ss>>temp;
-			int lit;
-			trueLits.clear();
-			while (ss>>lit) {
-				trueLits.push_back(lit);
+		    if (outputFormat==INPUT_FORMAT_WPMS22) {
+			    stringstream ss;
+			    ss<<line;
+			    string lits;
+			    ss>>lits; ss>>lits;
+			    trueLits.clear();
+			    for (int i=0; i<(int)lits.size(); ++i) {
+		            if (lits[i]=='0')      trueLits.push_back(-i-1);
+		            else if (lits[i]=='1') trueLits.push_back(i+1);
+			    }
+	        } else {
+			    stringstream ss;
+			    ss<<line;
+			    string temp;
+			    ss>>temp;
+			    int lit;
+			    trueLits.clear();
+			    while (ss>>lit) {
+				    trueLits.push_back(lit);
+			    }
 			}
 		}
 	}

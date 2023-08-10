@@ -138,10 +138,10 @@ int cmaxpre_get_original_variables(CMaxPre *);
 uint64_t cmaxpre_get_upper_bound(CMaxPre *);
 
 // PreprocessorInterface::printInstance for stdout
-void cmaxpre_print_instance_stdout(CMaxPre *);
+void cmaxpre_print_instance_stdout(CMaxPre *, int instanceFormat = maxPreprocessor::INPUT_FORMAT_WPMS22);
 // PreprocessorInterface::printSolution for stdout with an assignment added
 // with cmaxpre_assignment_add
-void cmaxpre_print_solution_stdout(CMaxPre *, uint64_t weight);
+void cmaxpre_print_solution_stdout(CMaxPre *, uint64_t weight, int solFormat = maxPreprocessor::INPUT_FORMAT_WPMS22);
 // PreprocessorInterface::printMap for stdout
 void cmaxpre_print_map_stdout(CMaxPre *);
 // PreprocessorInterface::printTechniqueLog for stdout

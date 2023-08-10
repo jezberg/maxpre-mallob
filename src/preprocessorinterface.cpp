@@ -168,14 +168,14 @@ namespace maxPreprocessor {
 		return preprocessor.trace.getFixed();
 	}
 
-	void PreprocessorInterface::printSolution(const vector<int>& trueLiterals, ostream& output, uint64_t ansWeight) {
+	void PreprocessorInterface::printSolution(const vector<int>& trueLiterals, ostream& output, uint64_t ansWeight, int outputFormat) {
 		vector<int> ppTrueLiterals;
 		for (int lit : trueLiterals) {
 			lit = litToPP(lit);
 			if (lit == 0) continue;
 			ppTrueLiterals.push_back(lit);
 		}
-		preprocessor.trace.printSolution(output, ppTrueLiterals, ansWeight, variables, originalVariables);
+		preprocessor.trace.printSolution(output, ppTrueLiterals, ansWeight, variables, originalVariables, outputFormat);
 	}
 
 	uint64_t PreprocessorInterface::getTopWeight() {

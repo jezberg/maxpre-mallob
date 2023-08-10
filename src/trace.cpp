@@ -306,11 +306,18 @@ std::vector<int> Trace::getFixed() {
 	return fixed;
 }
 
-void Trace::printSolution(ostream& output, const vector<int>& trueLits, uint64_t weight, int vars, int originalVars) {
+void Trace::printSolution(ostream& output, const vector<int>& trueLits, uint64_t weight, int vars, int originalVars, int outputFormat) {
 	auto solution = getSolution(trueLits, weight, vars, originalVars);
-	output << "v ";
-	for (int lit : solution.F) {
-		output << lit << " ";
+	if (outputFormat == INPUT_FORMAT_WPMS22) {
+	    output << "v ";
+	    for (int lit : solution.F) {
+		    output << (lit>0?1:0) << "";
+	    }
+	} else {
+	    output << "v ";
+	    for (int lit : solution.F) {
+		    output << lit << " ";
+	    }
 	}
 	output << '\n';
 	output << "s OPTIMUM FOUND\n";
