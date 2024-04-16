@@ -44,6 +44,8 @@ void Preprocessor::init() {
 	rLog.weightRange = pi.getWeightSums();
 	rLog.initialWeightRange = rLog.weightRange;
 
+	trace.setNbObjectives(pi.objectives);
+
 	for (int i=0; i<pi.objectives; ++i) {
 		stats["original_weight_sum"+std::to_string(i)]=rLog.weightRange[i];
 	}
@@ -51,26 +53,39 @@ void Preprocessor::init() {
 	stats["original_variables"]=pi.vars;
 }
 
+void Preprocessor::logProof(std::ostream& o, int debugLevel) {
+	if (pi.objectives > 1) {
+		cerr << "c proof logging not supported for multiobjective optimization\n";
+		return;
+	}
+	plogDebugLevel = debugLevel;
+	int pcl = 1;
+	if (debugLevel>=3) pcl = 2;
+	if (debugLevel>=5) pcl = 3;
+	plog = new ProofLogger(o, pi.vars, pcl);
+}
+
 Preprocessor::Preprocessor(const vector<vector<int> >& clauses, const vector<vector<uint64_t> >& weights, uint64_t topWeight)
-	: pi(clauses, weights, topWeight), satSolver(0), amsLex(pi) {
+	: plog(nullptr), pi(clauses, weights, topWeight), satSolver(0), amsLex(pi) {
 		init();
 }
 Preprocessor::Preprocessor(const vector<vector<int> >& clauses, const vector<uint64_t>& weights, uint64_t topWeight)
-	: pi(clauses, weights, topWeight), satSolver(0), amsLex(pi) {
+	: plog(nullptr), pi(clauses, weights, topWeight), satSolver(0), amsLex(pi) {
 		init();
 }
 Preprocessor::Preprocessor(const vector<vector<int> >& clauses, const vector<pair<uint64_t, uint64_t> >& weights, uint64_t topWeight)
-	: pi(clauses, weights, topWeight), satSolver(0), amsLex(pi) {
+	: plog(nullptr), pi(clauses, weights, topWeight), satSolver(0), amsLex(pi) {
 		init();
 }
 
 
-void Preprocessor::prepareSatSolver() {
+void Preprocessor::prepareSatSolver(ProofLogger* plog) {
 	// For now use always glucose 3... and create it every time...
 	if (satSolver) {
 		delete satSolver;
 	}
 	satSolver = (SATSolver*) new Glucose3();
+	satSolver->setProofLogger(plog);
 
 	for (unsigned c = 0; c<pi.clauses.size(); ++c) {
 		if (pi.isClauseRemoved(c)) continue;
@@ -78,6 +93,15 @@ void Preprocessor::prepareSatSolver() {
 
 		satSolver->addClause(pi.clauses[c].lit);
 	}
+}
+
+void Preprocessor::plogLogState() {
+	if (!plog) return;
+	for (int i=0; i<(int)pi.clauses.size(); ++i) {
+		if (pi.isClauseRemoved(i)) continue;
+		plog->clause_check(i, pi.clauses[i].lit);
+	}
+	plog->log_current_objective();
 }
 
 bool Preprocessor::isTautology(const Clause& clause) const {
@@ -90,37 +114,80 @@ bool Preprocessor::isTautology(const Clause& clause) const {
 }
 
 // Returns number of clauses removed
-int Preprocessor::setVariable(int var, bool value) {
+int Preprocessor::setVariable(int lit, int vid) {
+	if (plog && plogDebugLevel>=1) plog->comment("setVariable(", lit, " [=", plog->gl(lit), "], ", vid, ")");
+	int nlit = litNegation(lit);
+	int var = litVariable(lit);
+
+	if (plog && pi.isLabelVar(var)) {
+		// when hardening label variables, update the objective function first
+		if (pi.isLitLabel(lit)) {
+			int c = pi.litClauses[lit][0];
+			if (!plog->is_clause_deleted(c)) plog->soft_clause_satisfied(c);
+		} else {
+			int c = pi.litClauses[litNegation(lit)][0];
+			if (!plog->is_clause_deleted(c)) plog->soft_clause_falsified(c);
+		}
+	}
+
 	int removed = 0;
-	trace.setVar(var, value);
-	vector<int>& satClauses = (value == true) ? pi.litClauses[posLit(var)] : pi.litClauses[negLit(var)];
-	vector<int>& notSatClauses = (value == true) ? pi.litClauses[negLit(var)] : pi.litClauses[posLit(var)];
+	trace.setVar(var, litValue(lit));
+	vector<int>& satClauses = pi.litClauses[lit];
+	vector<int>& notSatClauses = pi.litClauses[nlit];
+
+	if (plog && vid==-1) {
+		for (int c : satClauses) {
+			if (!plog->is_clause_deleted(c) && pi.clauses[c].lit.size()==1 && pi.clauses[c].isHard()) {
+				vid = plog->get_vid(c);
+				break;
+			}
+		}
+	}
+	for (int c : notSatClauses) {
+		pi.removeLiteralFromClause(nlit, c);
+		if (plog && !plog->is_clause_deleted(c)) {
+			if (vid == -1) plog->clause_updated(c, pi.clauses[c].lit);
+			else           plog->unit_strengthen(c, vid);
+		}
+	}
+	int lc = -1;
 	for (int c : satClauses) {
+		if (plog && !plog->is_clause_deleted(c)) {
+			// removeDuplicateClauses may have logged removal of some clauses to the proof even if they still exists in maxpre database
+			// thus the check plog->is_clause_deleted(c) here
+			if (lc==-1 && pi.clauses[c].lit.size()==1 && pi.clauses[c].isHard()) lc = c;
+			else plog->delete_red_clause(c);
+		}
 		pi.removeClause(c);
 		removed++;
 	}
-	for (int c : notSatClauses) {
-		if (value == true) pi.removeLiteralFromClause(negLit(var), c);
-		else pi.removeLiteralFromClause(posLit(var), c);
-	}
+	if (plog && lc!=-1) plog->delete_red_clause(lc, lit);
+	if (plog && plogDebugLevel>=1) plog->comment("setVariable finished, ", removed, " satisfied clauses	 removed");
 	return removed;
 }
 
 // This is called only in the beginning since no tautologies are added
 void Preprocessor::removeTautologies() {
+	if (plog && plogDebugLevel>=1) plog->comment("removeTautologies");
 	int found = 0;
 
 	for (unsigned i = 0; i < pi.clauses.size(); i++) {
 		if (isTautology(pi.clauses[i])) {
 			found++;
 			pi.removeClause(i);
+			if (plog) {
+				if (pi.clauses[i].isHard()) plog->delete_red_clause(i);
+				else                        plog->delete_red_clause(i);
+			}
 		}
 	}
 
 	log(found, " tautologies removed");
+	if (plog && plogDebugLevel>=1) plog->comment("removeTautologies finished, ", found, " tautologies removed");
 }
 
-int Preprocessor::eliminateReduntantLabels() {
+int Preprocessor::eliminateRedundantLabels() {
+	if (plog && plogDebugLevel>=1) plog->comment("eliminateRedundantLabels");
 	int fnd = 0;
 
 	for (int objective=0; objective<pi.objectives; ++objective) {
@@ -167,7 +234,7 @@ int Preprocessor::eliminateReduntantLabels() {
 				vector<int> lits2;
 				for (int lit : pi.clauses[c2].lit) {
 					if (!pi.isLabelVar(litVariable(lit))) lits2.push_back(lit);
-					else if (pi.labelIndexMask(lit) != (1<<objective)) break;
+					else if (pi.labelIndexMask(litVariable(lit)) != (1<<objective)) break;
 					else lb2 = litNegation(lit);
 				}
 				if (lits2.size() != 2) continue;
@@ -176,17 +243,19 @@ int Preprocessor::eliminateReduntantLabels() {
 				if (pi.labelWeight(litVariable(lb), objective) != pi.labelWeight(litVariable(lb2), objective)) continue;
 				if (matched[litVariable(lb2)]) continue;
 				if (pi.litClauses[litNegation(lb2)].size() > 1) continue;
+				if (pi.litClauses[lb2].size() > 1) continue;
 				if ((lits[0] == lits2[0] && lits[1] == lits2[1]) || (lits[1] == lits2[0] && lits[0] == lits2[1])) {
 					fnd++;
 					matched[litVariable(lb)] = 1;
 					matched[litVariable(lb2)] = 1;
-					pi.removeLiteralFromClause(litNegation(lb2), c2);
-					pi.addLiteralToClause(litNegation(lb), c2);
-					pi.removeClause(pi.litClauses[lb2][0]);
-					assert(pi.isVarRemoved(litVariable(lb2)));
-					trace.labelEliminate(lb, lb2, lits2[0]);
-					trace.setVar(litVariable(lb2), litValue(lb2));
-					pi.unLabel(litVariable(lb2), objective);
+					pi.removeLiteralFromClause(litNegation(lb), c);
+					pi.addLiteralToClause(litNegation(lb2), c);
+					if (plog) plog->labels_matched(pi.clauses[c].lit, pi.clauses[c2].lit, c, c2, pi.litClauses[lb][0], pi.litClauses[lb2][0], litNegation(lits2[0]));
+					pi.removeClause(pi.litClauses[lb][0]);
+					assert(pi.isVarRemoved(litVariable(lb)));
+					trace.labelEliminate(lb2, lb, litNegation(lits2[0]));
+					trace.setVar(litVariable(lb), litValue(lb));
+					pi.unLabel(litVariable(lb), objective);
 					break;
 				}
 			}
@@ -223,6 +292,7 @@ int Preprocessor::eliminateReduntantLabels() {
 					matched[litVariable(l2)] = 1;
 					pi.removeLiteralFromClause(litNegation(l2), c2);
 					pi.addLiteralToClause(litNegation(ls[i]), c2);
+					if (plog) plog->labels_matched(pi.clauses[c2].lit, pi.clauses[c1].lit, c2, c1, pi.litClauses[l2][0], pi.litClauses[ls[i]][0], tautli);
 					pi.removeClause(pi.litClauses[l2][0]);
 					assert(pi.isVarRemoved(litVariable(l2)));
 					trace.labelEliminate(ls[i], l2, tautli);
@@ -234,18 +304,17 @@ int Preprocessor::eliminateReduntantLabels() {
 			}
 		}
 	}
+	if (plog && plogDebugLevel>=1) plog->comment("eliminateRedundantLabels finished ", fnd, " redundant labels removed");
 	return fnd;
 }
 
 // This is called only in the beginning
 void Preprocessor::identifyLabels() {
+	if (plog && plogDebugLevel>=1) plog->comment("start identifyLabels");
 	int found = 0;
 	int eliminated = 0;
 
-	// Find unit soft clauses where the negation of the literal occurs only in hard clauses
 	for (int lit = 0; lit < pi.vars*2; lit++) {
-		// if (pi.isLabelVar(litVariable(lit))) continue;
-// 		if (pi.litClauses[lit].size()>1) continue;
 		bool f = false;
 		vector<int> toRemove;
 		for (unsigned i=0; i<pi.litClauses[lit].size(); ++i) {
@@ -257,6 +326,7 @@ void Preprocessor::identifyLabels() {
 				} else {
 					pi.pourAllWeight(c, pi.litClauses[lit][0]);
 					toRemove.push_back(c);
+					if (plog) plog->substitute_soft_clause(c, pi.litClauses[lit][0]);
 				}
 			}
 		}
@@ -267,6 +337,7 @@ void Preprocessor::identifyLabels() {
 			if (!pi.clauses[c].isHard() && pi.clauses[c].lit.size() == 1) {
 				trace.removeWeight(pi.substractWeights(c, pi.litClauses[lit][0]));
 
+				if (plog) plog->contradictory_soft_clauses(c, pi.litClauses[lit][0], lit);
 
 				if (pi.clauses[c].isWeightless()) {
 					toRemove.push_back(c);
@@ -279,6 +350,7 @@ void Preprocessor::identifyLabels() {
 				}
 			}
 		}
+
 		eliminated += toRemove.size();
 		for (int c : toRemove) {
 			pi.removeClause(c);
@@ -287,13 +359,17 @@ void Preprocessor::identifyLabels() {
 
 		if (litValue(lit) == true) {
 			for (int objective=0; objective<pi.objectives; ++objective) {
-				if (pi.clauses[pi.litClauses[lit][0]].weight(objective))
+				if (pi.clauses[pi.litClauses[lit][0]].weight(objective)) {
 					pi.mkLabel(litVariable(lit), objective, VAR_TRUE);
+					if (plog) plog->make_objective_variable(lit, pi.litClauses[lit][0]);
+				}
 			}
 		} else {
 			for (int objective=0; objective<pi.objectives; ++objective) {
-				if (pi.clauses[pi.litClauses[lit][0]].weight(objective))
+				if (pi.clauses[pi.litClauses[lit][0]].weight(objective)) {
 					pi.mkLabel(litVariable(lit), objective, VAR_FALSE);
+					if (plog) plog->make_objective_variable(lit, pi.litClauses[lit][0]);
+				}
 			}
 		}
 		found++;
@@ -301,21 +377,24 @@ void Preprocessor::identifyLabels() {
 
 	log(found, " labels identified");
 	log(eliminated, " soft unit clauses eliminated");
+	if (plog && plogDebugLevel>=1) plog->comment("identifyLabels finished ", found, " labels identified, ", eliminated, " soft unit clauses eliminated");
 }
 
 // This is called only in the beginning
 void Preprocessor::createLabels() {
+	if (plog && plogDebugLevel>=1) plog->comment("start createLabels");
 	int added = 0;
 
 	// Create labels for every soft clause that does not have a label yet
 	for (unsigned i = 0; i < pi.clauses.size(); i++) {
 		if (!pi.clauses[i].isHard() && !pi.isClauseRemoved(i) && !pi.isLabelClause(i)) {
 			int nv = pi.addVar();
-			pi.addLiteralToClause(posLit(nv), i);
-			pi.addClause({negLit(nv)}, pi.clauses[i].weights);
+			if (plog) plog->set_blocking_lit(i, posLit(nv), pi.clauses.size());
+			pi.addLiteralToClause(negLit(nv), i);
+			pi.addClause({posLit(nv)}, pi.clauses[i].weights);
 			for (int objective=0; objective<pi.objectives; ++objective) {
 				if (pi.clauses[i].weight(objective))
-					pi.mkLabel(nv, objective, VAR_FALSE);
+					pi.mkLabel(nv, objective, VAR_TRUE);
 			}
 			pi.clauses[i].makeHard();
 			added++;
@@ -323,29 +402,45 @@ void Preprocessor::createLabels() {
 	}
 
 	log(added, " labels added");
+	if (plog && plogDebugLevel>=1) plog->comment("createLabels finished, ", added, " labels added");
 }
 
 int Preprocessor::removeEmptyClauses() {
+	if (plog && plogDebugLevel>=1) plog->comment("start removeEmptyClauses");
 	int removed = 0;
 	vector<int> src;
 	for (unsigned i = 0; i < pi.clauses.size(); i++) {
 		if (!pi.isClauseRemoved(i)) {
 			if (pi.clauses[i].lit.size() == 0) {
 				if (pi.clauses[i].isHard()) {
-
-				}
-				else {
+					// UNSAT
+					src.clear();
+					for (unsigned j = 0; j < pi.clauses.size(); ++j) {
+						if (i==j || pi.isClauseRemoved(j)) continue;
+						if (pi.clauses[j].lit.size() == 0 && !pi.clauses[j].isHard()) {
+							// this is done here because of prooflogging;
+							// weight removal is already logged in the proof, thus keep proof and prepro instance synced
+							trace.removeWeight(pi.clauses[j].weights);
+						}
+						if (plog) plog->delete_red_clause(j);
+						pi.removeClause(j);
+						removed++;
+					}
+					break;
+				}	else {
 					src.push_back(i);
 				}
 			}
 		}
 	}
 	for (int c : src) {
+		if (plog && !pi.isLabelClause(c)) plog->delete_unsat_clause(c);
 		trace.removeWeight(pi.clauses[c].weights);
 		pi.removeClause(c);
 		removed++;
 	}
 	log(removed, " empty clauses removed");
+	if (plog && plogDebugLevel>=1) plog->comment("removeEmptyClauses finished, ", removed, " empty clauses removed");
 	return removed;
 }
 
@@ -357,7 +452,7 @@ int Preprocessor::tryUP(int lit) {
 			}	else {
 				rLog.removeVariable(1);
 			}
-			int rmClauses = setVariable(litVariable(lit), litValue(lit));
+			int rmClauses = setVariable(lit);
 			rLog.removeClause(rmClauses);
 			return rmClauses;
 		}
@@ -375,7 +470,7 @@ int Preprocessor::tryUPAll() {
 			}	else {
 				rLog.removeVariable(1);
 			}
-			int rmClauses = setVariable(litVariable(lit), litValue(lit));
+			int rmClauses = setVariable(lit);
 			rLog.removeClause(rmClauses);
 			removed += rmClauses;
 			if (!rLog.requestTime(Log::Technique::UP)) break;
@@ -391,6 +486,7 @@ int Preprocessor::doUP() {
 		rLog.stopTechnique(Log::Technique::UP);
 		return 0;
 	}
+	if (plog && plogDebugLevel>=1) plog->comment("start UP");
 	vector<int> checkLit = pi.tl.getTouchedLiterals("UP");
 	if ((int)checkLit.size() > pi.vars) {
 		removed = tryUPAll();
@@ -404,6 +500,12 @@ int Preprocessor::doUP() {
 
 	log(removed, " clauses removed by UP");
 	rLog.stopTechnique(Log::Technique::UP);
+
+	if (plog && plogDebugLevel>=1) {
+		plog->comment("UP finished, ", removed, " clauses removed");
+		if (plogDebugLevel>=4) plogLogState();
+	}
+
 	return removed;
 }
 
@@ -415,7 +517,49 @@ void Preprocessor::doUP2() {
 	rLog.stopTechnique(Log::Technique::UP);
 }
 
+int Preprocessor::removeDuplicateClauses(vector<pair<uint64_t, int> >& has) {
+	int removed = 0;
+	sort(has.begin(), has.end());
+	bool hard = false;
+	vector<int> toRemove;
+	for (unsigned i = 1; i < has.size(); i++) {
+		if (has[i].F != has[i - 1].F) {
+			hard = false;
+			continue;
+		}
+		if (pi.clauses[has[i].S].lit != pi.clauses[has[i - 1].S].lit) {
+			hard = false;
+			continue;
+		}
+
+		if (hard || pi.clauses[has[i-1].S].isHard()) {
+			hard = true;
+			toRemove.push_back(has[i].S);
+			if (plog && !pi.isLabelClause(has[i].S)) plog->delete_red_clause(has[i].S);
+		} else if (pi.clauses[has[i].S].isHard()) {
+			hard = true;
+			toRemove.push_back(has[i-1].S);
+			if (plog) plog->delete_red_clause(has[i-1].S);
+		} else {
+			pi.pourAllWeight(has[i-1].S, has[i].S);
+			toRemove.push_back(has[i-1].S);
+			if (plog) plog->substitute_soft_clause(has[i-1].S, has[i].S);
+		}
+	}
+	for (int c : toRemove) assert(!pi.isClauseRemoved(c));
+	for (int c : toRemove) {
+		if (pi.isLabelClause(c)) { // since after labelling there are no duplicate softs, this implies we have a unit hard clause and we can harden it
+			removed += setVariable(pi.clauses[c].lit[0]);
+		} else if (!pi.isClauseRemoved(c)) { // hardening can remove some clauses marked as to remove...
+			removed++;
+			pi.removeClause(c);
+		}
+	}
+	return removed;
+}
+
 int Preprocessor::removeDuplicateClauses() {
+	if (plog && plogDebugLevel>=1) plog->comment("removeDuplicateClauses");
 	int removed = 0;
 	vector<int> checkLit = pi.tl.getModLiterals("DPCLRM");
 	vector<pair<uint64_t, int> > has;
@@ -424,6 +568,7 @@ int Preprocessor::removeDuplicateClauses() {
 			if (!pi.isClauseRemoved(c)) {
 				if (pi.clauses[c].lit.size() == 0) {
 					if (!pi.clauses[c].isHard()) {
+						if (plog) plog->delete_unsat_clause(c);
 						trace.removeWeight(pi.clauses[c].weights);
 						pi.removeClause(c);
 					}
@@ -438,39 +583,7 @@ int Preprocessor::removeDuplicateClauses() {
 				}
 			}
 		}
-		sort(has.begin(), has.end());
-		bool hard = false;
-		vector<int> toRemove;
-		for (unsigned i = 1; i < has.size(); i++) {
-			if (has[i].F != has[i - 1].F) {
-				hard = false;
-				continue;
-			}
-			if (pi.clauses[has[i].S].lit != pi.clauses[has[i - 1].S].lit) {
-				hard = false;
-				continue;
-			}
-
-			if (hard || pi.clauses[has[i-1].S].isHard()) {
-				hard = true;
-				toRemove.push_back(has[i].S);
-			} else if (pi.clauses[has[i].S].isHard()) {
-				hard = true;
-				toRemove.push_back(has[i-1].S);
-			} else {
-				pi.pourAllWeight(has[i-1].S, has[i].S);
-				toRemove.push_back(has[i-1].S);
-			}
-		}
-		for (int c : toRemove) assert(!pi.isClauseRemoved(c));
-		for (int c : toRemove) {
-			if (pi.isLabelClause(c)) { // since after labelling there are no duplicate softs, this implies we have a unit hard clause and we can harden it
-				removed += setVariable(litVariable(pi.clauses[c].lit[0]), litValue(pi.clauses[c].lit[0]));
-			} else if (!pi.isClauseRemoved(c)) { // hardening can remove some clauses marked as to remove...
-				removed++;
-				pi.removeClause(c);
-			}
-		}
+		removed+=removeDuplicateClauses(has);
 	}
 	else {
 		for (int lit : checkLit) {
@@ -484,40 +597,10 @@ int Preprocessor::removeDuplicateClauses() {
 				has.push_back({h, c});
 			}
 			sort(has.begin(), has.end());
-			bool hard = false;
-			vector<int> toRemove;
-			for (unsigned i = 1; i < has.size(); i++) {
-				if (has[i].F != has[i - 1].F) {
-					hard = false;
-					continue;
-				}
-				if (pi.clauses[has[i].S].lit != pi.clauses[has[i - 1].S].lit) {
-					hard = false;
-					continue;
-				}
-
-				if (hard || pi.clauses[has[i-1].S].isHard()) {
-					hard = true;
-					toRemove.push_back(has[i].S);
-				} else if (pi.clauses[has[i].S].isHard()) {
-					hard = true;
-					toRemove.push_back(has[i-1].S);
-				} else {
-					pi.pourAllWeight(has[i-1].S, has[i].S);
-					toRemove.push_back(has[i-1].S);
-				}
-			}
-			for (int c : toRemove) assert(!pi.isClauseRemoved(c));
-			for (int c : toRemove) {
-				if (pi.isLabelClause(c)) { // since after labelling there is not duplicate softs, this implies we have unit hard clause and we can harden it
-					removed+=setVariable(litVariable(pi.clauses[c].lit[0]), litValue(pi.clauses[c].lit[0]));
-				} else if (!pi.isClauseRemoved(c)) { // hardening can remove some clauses marked as to remove...
-					removed++;
-					pi.removeClause(c);
-				}
-			}
+			removed+=removeDuplicateClauses(has);
 		}
 	}
+	if (plog && plogDebugLevel>=1) plog->comment("removeDuplicateClauses finished, ", removed, " duplicate clauses removed");
 	return removed;
 }
 
@@ -543,19 +626,24 @@ int Preprocessor::removeDuplicateClauses() {
 
 PreprocessedInstance Preprocessor::getPreprocessedInstance(bool addRemovedWeight, bool sortLabelsFrequency) {
 	PreprocessedInstance ret;
+
+
 	for (unsigned i = 0; i < pi.clauses.size(); i++) {
 		if (!pi.isClauseRemoved(i) && pi.clauses[i].isHard()) {
 			ret.clauses.push_back(pi.clauses[i].lit);
 			if (pi.objectives>1) ret.weightsv.push_back({});
 			else                 ret.weights.push_back(HARDWEIGHT);
+			ret.clause_cids.push_back(i);
 		}
 	}
 	for (int var = 0; var < pi.vars; var++) {
 		if (pi.litClauses[posLit(var)].size() > 0 || pi.litClauses[negLit(var)].size() > 0) {
 			if (pi.litClauses[negLit(var)].size() == 0) {
 				trace.setVar(var, true);
+				if (plog && (pi.isLitLabel(posLit(var)))) plog->delete_red_clause(pi.litClauses[posLit(var)][0], posLit(var));
 			} else if (pi.litClauses[posLit(var)].size() == 0) {
 				trace.setVar(var, false);
+				if (plog && (pi.isLitLabel(negLit(var)))) plog->delete_red_clause(pi.litClauses[negLit(var)][0], negLit(var));
 			} else {
 				if (pi.isLitLabel(posLit(var))) {
 					assert(pi.clauses[pi.litClauses[posLit(var)][0]].lit.size() == 1);
@@ -570,13 +658,21 @@ PreprocessedInstance Preprocessor::getPreprocessedInstance(bool addRemovedWeight
 			}
 		}
 	}
+	bool hasRemovedWeight = 0;
+	for (auto w : trace.removedWeight) if (w) hasRemovedWeight=1;
 
-	if (addRemovedWeight && trace.removedWeight.size()) {
+	if (addRemovedWeight && hasRemovedWeight) {
 	 	int nVar = pi.getExcessVar();
 	 	ret.labels.push_back({negLit(nVar), trace.removedWeight});
 	 	ret.clauses.push_back({posLit(nVar)});
 	 	if (pi.objectives>1) ret.weightsv.push_back({});
 	 	else                 ret.weights.push_back(HARDWEIGHT);
+		if (plog) {
+			ret.clause_cids.push_back(pi.clauses.size());
+			plog->map_clause(pi.clauses.size(), plog->add_red_clause_({posLit(nVar)}, posLit(nVar), 1), 1);
+			plog->map_unit_soft(pi.clauses.size()+1, negLit(nVar));
+			plog->obju_remove_constant(pi.clauses.size()+1);
+		}
 	}
 
 	if (sortLabelsFrequency) {
@@ -844,8 +940,24 @@ void Preprocessor::preprocess(string techniques, double timeLimit, bool debug, b
 	preTime.start();
 	log(originalVars, " variables, ", originalClauses, " clauses");
 
+	if (plog) {
+		// set up prooflogging
+		plog->begin_proof();
+		int nbclauses = 0;
+		for (int i=0; i<(int)pi.clauses.size(); ++i) {
+			if (pi.clauses[i].isHard() || pi.clauses[i].lit.size()!=1) plog->map_clause(i, ++nbclauses, pi.clauses[i].isHard());
+			else                                                       plog->map_unit_soft(i, pi.clauses[i].lit[0]);
+			if (!pi.clauses[i].isHard())                               plog->set_soft_clause_weight(i, pi.clauses[i].weight(0));
+		}
+		plog->set_nb_clauses(nbclauses);
+		// check that instance matches that of the verifier
+		if (plogDebugLevel>=2) plogLogState();
+	}
+
+
 	print("c techniques ", techniques);
 	log("techniques ", techniques);
+
 
 	string preTechniques;
 	for (unsigned i = 0; i < techniques.size(); i++) {
@@ -859,8 +971,13 @@ void Preprocessor::preprocess(string techniques, double timeLimit, bool debug, b
 	if (!validTechniques(techniques) || !validPreTechniques(preTechniques)) {
 		log("Invalid techniques");
 		print("c Invalid techniques");
+		if (plog) {
+			plog->comment("Could not run preprocessor: Invalid techniques");
+		}
 		abort();
 	}
+
+	if (plog && plogDebugLevel>=1) plog->comment("start pre-preprocessing phase, preTechniques = '", preTechniques, "'");
 
 	if (initialCall) {
 		removeTautologies();
@@ -877,14 +994,19 @@ void Preprocessor::preprocess(string techniques, double timeLimit, bool debug, b
 			rLog.timePlan(timeLimit - preTime.getTime().count()*2, techniques);
 			rLog.startTimer();
 			doPreprocess(preTechniques, 0, (int)preTechniques.size() - 1, debug, false);
+			if (plog && plogDebugLevel>=1) {
+				plog->comment("finished pre-preprocessing phase");
+				if (plogDebugLevel>=4) plogLogState();
+			}
 		}
+		if (plog && plogDebugLevel>=1) plog->comment("start labelling");
 
 		removeEmptyClauses();
 		identifyLabels();
 		createLabels();
 
 		if (matchLabels) {
-			int labelsMatched = eliminateReduntantLabels();
+			int labelsMatched = eliminateRedundantLabels();
 			rLog.labelsMatched += labelsMatched;
 			log(labelsMatched, " labels matched");
 		}
@@ -893,7 +1015,13 @@ void Preprocessor::preprocess(string techniques, double timeLimit, bool debug, b
 		log(dpRm, " duplicate clauses removed");
 
 		pi.tl.init(pi.vars);
+
+		if (plog && plogDebugLevel>=1) {
+			plog->comment("labelling finished");
+			if (plogDebugLevel>=4) plogLogState();
+		}
 	}
+
 
 	if (!initialCall || preTechniques.size() == 0) {
 		preTime.stop();// here
@@ -901,7 +1029,12 @@ void Preprocessor::preprocess(string techniques, double timeLimit, bool debug, b
 		rLog.startTimer();
 	}
 
+	if (plog && plogDebugLevel>=1) plog->comment("start main preprocessing, techniques = '", techniques, "'");
+
 	doPreprocess(techniques, 0, (int)techniques.size() - 1, debug, true);
+
+	if (plog && plogDebugLevel>=1) plog->comment("main preprocessing finished");
+
 
 	rLog.stopTimer();
 
@@ -925,12 +1058,14 @@ void Preprocessor::preprocess(string techniques, double timeLimit, bool debug, b
 	}
 	stats["final_clauses"]=clauses;
 	stats["final_variables"]=vars;
+
+	if (plog && plogDebugLevel>=2) plogLogState();
 }
 
 std::string Preprocessor::version(int l) {
 	std::stringstream vs;
 	if (l&1) vs << "MaxPRE ";
-	vs << "2.1.1";
+	vs << "2.2.0";
 	if (l&2) vs << " (" << GIT_IDENTIFIER << ", " << __DATE__ << " " << __TIME__ << ")";
 	return vs.str();
 }

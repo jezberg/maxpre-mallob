@@ -8,7 +8,9 @@
 #include <unordered_map>
 #include <unordered_set>
 
+
 #include "global.hpp"
+#include "prooflogger.h"
 #include "preprocessedinstance.hpp"
 #include "probleminstance.hpp"
 #include "trace.hpp"
@@ -24,6 +26,16 @@ namespace maxPreprocessor {
 // Positive literal is v*2, negative is v*2+1
 class Preprocessor {
 public:
+	ProofLogger* plog;
+	// plogDebugLevel: How much debugging stuff is added to the proof.
+	// 0 = nothing
+	// 1 = comments about starting and finishing techniques etc.
+	// 2 = +check that clauses and objectives match at the beginning and at the end of preprocessing
+	// 3 = +comments about which prooflogger functions are called
+	// 4 = +check that clauses and objectives match when a preprocessing technique is finished
+	// 5 = +more comments when prooflogger functions are called
+	int plogDebugLevel;
+
 	// parameters, magic constants etc..
 	struct Options {
 		int skipTechnique;
@@ -123,26 +135,31 @@ public:
 	Trace trace;
 
 	SATSolver* satSolver;
-	void prepareSatSolver();
+	void prepareSatSolver(ProofLogger* plog = nullptr);
 
 
 private:
 	void init();
 public:
+	void logProof(std::ostream& o, int debugLevel);
+
 	Preprocessor(const std::vector<std::vector<int> >& clauses_, const std::vector<uint64_t>& weights_, uint64_t topWeight_);
 	Preprocessor(const std::vector<std::vector<int> >& clauses_, const std::vector<std::pair<uint64_t, uint64_t> >& weights_, uint64_t topWeight_);
 	Preprocessor(const std::vector<std::vector<int> >& clauses_, const std::vector<std::vector<uint64_t> >& weights_, uint64_t topWeight_);
+
+	//
+	void plogLogState();
 
 
 	bool isTautology(const Clause& clause) const;
 
 	// Returns number of clauses removed
-	int setVariable(int var, bool value);
+	int setVariable(int lit, int vid = -1);
 
 	// This is called only in the beginning since no tautologies are added
 	void removeTautologies();
 
-	int eliminateReduntantLabels();
+	int eliminateRedundantLabels();
 	// This is called only in the beginning
 	void identifyLabels();
 
@@ -157,6 +174,7 @@ public:
 	int doUP();
 	void doUP2();
 
+	int removeDuplicateClauses(vector<pair<uint64_t, int> >& has);
 	int removeDuplicateClauses();
 
 	// Is clause a subsumed by clause b?
@@ -251,8 +269,8 @@ public:
 	int doBVA();
 	void doBVA2();
 
-	void GSLEBT(int i, uint64_t w, std::vector<int>& sel, std::vector<uint64_t>& weights, std::vector<std::vector<int> >& hs, bool& found, uint64_t& itLim);
-	bool GSLEtryBackTrack(std::vector<std::vector<int> >& hs, std::vector<uint64_t>& weights, uint64_t w, uint64_t itLim);
+	void GSLEBT(int i, uint64_t w, std::vector<bool>& sel, std::vector<uint64_t>& weights, std::vector<std::vector<int> >& hs, bool& found, uint64_t& itLim);
+	bool GSLEtryBackTrack(std::vector<std::vector<int> >& hs, std::vector<uint64_t>& weights, uint64_t w, uint64_t itLim, std::vector<bool>& sel);
 	int tryGSLE(int lb, int objective);
 	int doGSLE();
 	void doGSLE2();
@@ -272,7 +290,7 @@ public:
 	int doAM1(bool weight_aware, bool stratification, bool greedy_cost);
 
 	unordered_set<int> canSatLits;
-	int tryTMS(vector<int>& vars);
+	int tryTMS(vector<int>& vars, vector<pair<int, int> >& variablesToSet, vector<pair<int, int> >& proofClausesToDelete); // the second element of variablesToSet and the vector proofClausesToDelete are for prooflogging purposes
 	int TMSMaxVars; // tmp TODO: test and remove
 	int doBBTMS(int maxVars);
 	int doTMS();
@@ -309,14 +327,14 @@ public:
 
 	int flePos;
 	int fleActiveTechniques;
-	bool testBinaryFPR(int x, int y, const vector<int>& up_neg_x, const vector<int>& up_neg_y, bool fullFilter);
-	bool testBinaryRedundancy(int lit, int l, const vector<int>& upn, const vector<int>& eqLits, int redTechniques);
+	bool testBinaryFPR(int x, int y, const vector<int>& up_neg_x, const vector<int>& up_neg_y, bool fullFilter, int& vid);
+	bool testBinaryRedundancy(int lit, int l, const vector<int>& upn, const vector<int>& eqLits, int redTechniques, int& vid);
 	void replaceLit(int lit1, int lit2);
-	void handleEqLits(vector<int>& lits);
+	void handleEqLits(int uplit, vector<int>& lits);
 	int tryFLE(int lit, vector<int>& up, bool doRLE);
 
-	int tryFLE(int var, bool doRLE, bool findEqs, bool findRedEqs, bool findForced, bool findRedForced, int redTechniques);
-	int doFLE(bool doRLE, bool findEqs, bool findRedEqs, bool findForced, bool findRedForced, int redTechniques);
+	int tryFLE(int var, bool doRLE, bool findImplied, bool findRedImplied, bool findEqs, bool findRedEqs, int redTechniques);
+	int doFLE(bool doRLE, bool findImplied, bool findRedImplied, bool findEqs, bool findRedEqs, int redTechniques);
 
 
 	void CBIGdfs1(int x, std::vector<int>& ns, std::vector<std::pair<int, std::pair<int, int> > >& condEdges);

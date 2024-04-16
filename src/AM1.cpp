@@ -35,7 +35,11 @@ int Preprocessor::tryAM1(vector<int>& bvars, int objective, bool weight_aware, b
 		} else {
 			a[0]=litNegation(b);
 			satSolver->addClause(a);
-			removedClauses+=setVariable(litVariable(b), !litValue(b));
+			int tci = 0;
+			if (plog) tci = plog->add_rup_clause(a, 1);
+			removedClauses+=setVariable(litNegation(b), tci);
+			if (plog) plog->delete_clause_vid(tci, litNegation(b));
+
 			conns[b].clear();
 			rLog.removeLabel(1);
 		}
@@ -72,10 +76,15 @@ int Preprocessor::tryAM1(vector<int>& bvars, int objective, bool weight_aware, b
 			}
 			if (am1.size()<2) continue;
 
+
+			vector<pair<int, int> > soft_clauses; // for prooflogging
+
 			uint64_t sumw=0;
 			for (int bb : am1) {
 				int cc = pi.litClauses[bb][0];
 				sumw += pi.clauses[cc].weights[objective];
+
+				if (plog) soft_clauses.emplace_back(cc, cc);
 
 				if (greedy_cost) {
 					pi.clauses[cc].weights[objective] -= maxw;
@@ -99,12 +108,17 @@ int Preprocessor::tryAM1(vector<int>& bvars, int objective, bool weight_aware, b
 					if (pi.litClauses[litNegation(bb)].size() && pi.isLabelClause(pi.litClauses[litNegation(bb)][0])) {
 						int lcl = pi.litClauses[litNegation(bb)][0];
 						pi.clauses[lcl].addWeight(-pi.clauses[cc].weights[objective], objective);
+						if (plog) soft_clauses.back().S = lcl;
 					} else {
 						vector<uint64_t> weights(objective+1);
 						weights[objective] = -pi.clauses[cc].weights[objective];
 						pi.addClause({litNegation(bb)}, weights);
 						swap(pi.litClauses[litNegation(bb)][0], pi.litClauses[litNegation(bb)].back());
 						removedClauses--;
+						if (plog) {
+							soft_clauses.back().S = pi.litClauses[litNegation(bb)][0];
+							plog->map_unit_soft(pi.litClauses[litNegation(bb)][0], litNegation(bb));
+						}
 					}
 
 					pi.mkLabel(litVariable(bb), objective, litPolarity(litNegation(bb)));
@@ -132,12 +146,23 @@ int Preprocessor::tryAM1(vector<int>& bvars, int objective, bool weight_aware, b
 
 			int nv = pi.addVar();
 			am1.push_back(posLit(nv));
-
 			pi.addClause(am1);
+
 			vector<uint64_t> weights(objective+1);
-			weights[objective] = greedy_cost ? maxw : minw;
+			uint64_t w = greedy_cost ? maxw : minw;
+			weights[objective] = w;
+
 			pi.addClause({negLit(nv)}, weights);
 			pi.mkLabel(nv, objective, VAR_FALSE);
+
+			if (plog) {
+				// add atmost1-clause
+				plog->map_clause(pi.clauses.size()-2, plog->add_red_clause(am1, posLit(nv), 1), 1);
+				// add new objective variable
+				plog->map_unit_soft(pi.litClauses[negLit(nv)][0], negLit(nv));
+				// change the objective
+				plog->at_most_one(soft_clauses, pi.clauses.size()-2, pi.clauses.size()-1, w);
+			}
 
 			rLog.removeClause(-2);
 			++am1s;
@@ -146,7 +171,7 @@ int Preprocessor::tryAM1(vector<int>& bvars, int objective, bool weight_aware, b
 	rLog.removeClause(removedClauses);
 	log(am1s, " at most one -constraints detected by AM1, total weight ", weights_reduced);
 	log(removedClauses, " clauses removed by AM1");
-	return removedClauses;
+	return am1s;
 }
 
 
@@ -158,12 +183,13 @@ int Preprocessor::doAM1(bool weight_aware, bool stratification, bool greedy_cost
 		rLog.stopTechnique(Log::Technique::AM1);
 		return 0;
 	}
+	if (plog && plogDebugLevel>=1) plog->comment("start AM1");
 
 	stats["doAM1"]+=1;
 
 	prepareSatSolver();
 
-	int removedClauses=0;
+	int applied = 0;
 
 	for (int objective=0; objective<pi.objectives; ++objective) {
 		vector<int> bvars;
@@ -176,8 +202,15 @@ int Preprocessor::doAM1(bool weight_aware, bool stratification, bool greedy_cost
 			}
 		}
 
-		if (rLog.requestTime(Log::Technique::AM1)) removedClauses += tryAM1(bvars, objective, weight_aware, stratification, greedy_cost);
+		if (rLog.requestTime(Log::Technique::AM1)) applied += tryAM1(bvars, objective, weight_aware, stratification, greedy_cost);
 	}
 	rLog.stopTechnique(Log::Technique::AM1);
-	return removedClauses;
+	if (plog && plogDebugLevel>=1)
+
+	if (plog && plogDebugLevel>=1) {
+		plog->comment("AM1 finished, ", applied, " at most one constraints detected");
+		if (plogDebugLevel>=4) plogLogState();
+	}
+
+	return applied;
 }

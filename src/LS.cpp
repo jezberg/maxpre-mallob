@@ -53,20 +53,39 @@ int Preprocessor::tryLS(int lit) {
 		tryLSBCE(negLit(var), deletedClauses, touchedList, blockedClauses);
 	}
 	for (auto c : blockedClauses) {
+		bool ttl = 0;
+		for (int l : pi.clauses[c.F].lit) {
+			if (l==lit) {
+				ttl=1;
+				break;
+			}
+		}
+		if (ttl) {
+			pi.removeClause(c.F);
+			if (plog) plog->delete_red_clause_(c.F,  {{c.S, litNegation(lit)}});
+			continue;
+		}
 		trace.LS(litNegation(lit), c.S, pi.clauses[c.F].lit);
 		pi.addLiteralToClause(litNegation(lit), c.F);
+		if (plog) {
+			int tci = 0;
+			tci = plog->add_rup_clause(pi.clauses[c.F].lit, 1);
+			plog->delete_red_clause_(c.F, {{c.S, litNegation(lit)}});
+			plog->map_clause(c.F, tci, 1);
+		}
 	}
 	rLog.removeLiteral(-(int)blockedClauses.size());
 	return blockedClauses.size();
 }
 
 int Preprocessor::doLS() {
-	while (doBCE());
+	//while (doBCE());
 	rLog.startTechnique(Log::Technique::LS);
 	if (!rLog.requestTime(Log::Technique::LS)) {
 		rLog.stopTechnique(Log::Technique::LS);
 		return 0;
 	}
+	if (plog && plogDebugLevel>=1) plog->comment("start LS");
 	int added = 0;
 	vector<int> checkVar = pi.tl.getTouchedVariables("LS");
 	for (int var : checkVar) {
@@ -77,6 +96,12 @@ int Preprocessor::doLS() {
 		if (pi.slabelPolarity(var) != VAR_TRUE) added+=tryLS(negLit(var));
 	}
 	log(added, " clauses labeled by LS");
+
+	if (plog && plogDebugLevel>=1) {
+		plog->comment("LS finished, ", added, " clauses labeled.");
+		if (plogDebugLevel>=4) plogLogState();
+	}
+
 	rLog.stopTechnique(Log::Technique::LS);
 	return added;
 }

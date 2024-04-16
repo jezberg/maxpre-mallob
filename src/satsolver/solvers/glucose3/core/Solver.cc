@@ -28,6 +28,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 **************************************************************************************************/
 
 #include <math.h>
+#include <vector>
 
 #include "../mtl/Sort.h"
 #include "../core/Solver.h"
@@ -89,6 +90,7 @@ Solver::Solver() :
 
     // Parameters (user settable):
     //
+    plog(nullptr),
     verbosity        (0)
     , showModel        (0)
     , K              (opt_K)
@@ -164,6 +166,12 @@ Solver::~Solver()
 {
 }
 
+
+
+void clause_to_prooflogger(vec<Lit>& clause_in, std::vector<int>& clause_out) {
+  clause_out.resize(clause_in.size());
+  for (int i=0; i<clause_in.size(); ++i) clause_out[i]=toInt(clause_in[i]);
+}
 
 /****************************************************************
  Set the incremental mode
@@ -312,6 +320,16 @@ void Solver::removeClause(CRef cr) {
 
   Clause& c = ca[cr];
 
+  if (plog && clause_vids.count(cr)) {
+    if (locked(c)) {
+      // Preserving propagated unit literals when removing a clause progatating on level-0
+      if (c.size()>2)  extra_clause_vids.push_back(plog->add_rup_clause_({toInt(c[0])}, 0));
+      else             extra_clause_vids.push_back(plog->add_rup_clause_({toInt(c[value(c[0]) == l_TrueP ? 0 : 1])}, 0));
+    }
+    plog->delete_clause_vid(clause_vids[cr]);
+    clause_vids.erase(cr);
+  }
+
   if (certifiedUNSAT) {
     fprintf(certifiedOutput, "d ");
     for (int i = 0; i < c.size(); i++)
@@ -321,7 +339,10 @@ void Solver::removeClause(CRef cr) {
 
   detachClause(cr);
   // Don't leave pointers to free'd memory!
-  if (locked(c)) vardata[var(c[0])].reason = CRef_Undef;
+  if (locked(c)) {
+    if (c.size()>2) vardata[var(c[0])].reason = CRef_Undef;
+    else vardata[var(c[value(c[0]) == l_TrueP ? 0 : 1])].reason = CRef_Undef;
+  }
   c.mark(1);
   ca.free(cr);
 }
@@ -1158,7 +1179,6 @@ lbool Solver::search()
             learnt_clause.clear();
 	    selectors.clear();
             analyze(confl, learnt_clause, selectors,backtrack_level,nblevels,szWoutSelectors);
-
 	    lbdQueue.push(nblevels);
 	    sumLBD += nblevels;
 
@@ -1174,6 +1194,7 @@ lbool Solver::search()
 
             if (learnt_clause.size() == 1){
 	      uncheckedEnqueue(learnt_clause[0]);nbUn++;
+              if (plog) extra_clause_vids.push_back(plog->add_rup_clause_({toInt(learnt_clause[0])}, 0));
             }else{
                 CRef cr = ca.alloc(learnt_clause, true);
 		ca[cr].setLBD(nblevels);
@@ -1182,6 +1203,11 @@ lbool Solver::search()
 		if(ca[cr].size()==2) nbBin++; // stats
                 learnts.push(cr);
                 attachClause(cr);
+                if (plog) {
+                  std::vector<int> pl_clause;
+                  clause_to_prooflogger(learnt_clause, pl_clause);
+                  clause_vids[cr] = plog->add_rup_clause(pl_clause, 0);
+                }
 
                 claBumpActivity(ca[cr]);
                 uncheckedEnqueue(learnt_clause[0], cr);
@@ -1407,8 +1433,13 @@ void Solver::relocAll(ClauseAllocator& to)
 
     // All learnt:
     //
-    for (int i = 0; i < learnts.size(); i++)
-        ca.reloc(learnts[i], to);
+    std::map<CRef, int> clause_vids_;
+    for (int i = 0; i < learnts.size(); i++) {
+      CRef c0 = learnts[i];
+      ca.reloc(learnts[i], to);
+      if (plog) clause_vids_[learnts[i]] = clause_vids[c0];
+    }
+    if (plog) swap(clause_vids_, clause_vids);
 
     // All original:
     //

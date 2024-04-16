@@ -399,4 +399,24 @@ std::vector<uint64_t> ProblemInstance::getWeightSums() {
 	return weightSums;
 }
 
+void ProblemInstance::printClauses(std::ostream& out) {
+	for (int i=0; i<(int)clauses.size(); ++i) {
+		out << "clause #" << i << ": ";
+		if (isClauseRemoved(i)) {
+			out << "[removed]\n";
+			continue;
+		}
+		out << "( ";
+		for (int l : clauses[i].lit) out << litToDimacs(l) << " ";
+		out << ") ";
+		if (clauses[i].isHard()) {
+			out << "[HARD]\n";
+		} else {
+			out << "weight: ";
+			for (int o=0; o<objectives; ++o) out << clauses[i].weight(o) << " ";
+			out << "\n";
+		}
+	}
+}
+
 }

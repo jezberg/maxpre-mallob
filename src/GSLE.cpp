@@ -1,4 +1,4 @@
-void Preprocessor::GSLEBT(int i, uint64_t w, vector<int>& sel, vector<uint64_t>& weights, vector<vector<int> >& hs, bool& found, uint64_t& itLim) {
+void Preprocessor::GSLEBT(int i, uint64_t w, vector<bool>& sel, vector<uint64_t>& weights, vector<vector<int> >& hs, bool& found, uint64_t& itLim) {
 	if (i == (int)hs.size()) {
 		found = true;
 		return;
@@ -16,21 +16,20 @@ void Preprocessor::GSLEBT(int i, uint64_t w, vector<int>& sel, vector<uint64_t>&
 	}
 	if (f) {
 		GSLEBT(i + 1, w, sel, weights, hs, found, itLim);
-	}
-	else {
+	}	else {
 		for (int l : hs[i]) {
 			if (weights[l] > w) continue;
 			sel[l] = 1;
 			GSLEBT(i + 1, w - weights[l], sel, weights, hs, found, itLim);
+			if (found) return;
 			sel[l] = 0;
 		}
 	}
 }
 
-bool Preprocessor::GSLEtryBackTrack(vector<vector<int> >& hs, vector<uint64_t>& weights, uint64_t w, uint64_t itLim) {
+bool Preprocessor::GSLEtryBackTrack(vector<vector<int> >& hs, vector<uint64_t>& weights, uint64_t w, uint64_t itLim, vector<bool>& sel) {
 	if (hs.size() == 0) return true;
 	bool found = false;
-	vector<int> sel(weights.size());
 	found = false;
 	int tries = opt.GSLE_tries;
 	for (int l : hs[0]) {
@@ -38,8 +37,8 @@ bool Preprocessor::GSLEtryBackTrack(vector<vector<int> >& hs, vector<uint64_t>& 
 		uint64_t lm = itLim;
 		sel[l] = 1;
 		GSLEBT(1, w - weights[l], sel, weights, hs, found, lm);
-		sel[l] = 0;
 		if (found) break;
+		sel[l] = 0;
 		tries--;
 		if (tries < 0) break;
 	}
@@ -85,10 +84,10 @@ int Preprocessor::tryGSLE(int lb, int objective) {
 			if (sel.count(s[0]) == 0) {
 				sel.insert(s[0]);
 				selW += pi.labelWeight(s[0], objective);
+				if (selW > lw) return 0;
 			}
 		}
 	}
-	if (selW > lw) return 0;
 	vector<vector<int> > hss;
 	uint64_t hsl = 0;
 	for (auto& s : hs) {
@@ -138,19 +137,22 @@ int Preprocessor::tryGSLE(int lb, int objective) {
 		};
 		sort(hss[i].begin(), hss[i].end(), cmp2);
 	}
-	bool ok = false;
 	hsl = min(hsl, (uint64_t)hss.size()*10); // magic constant
-	if (GSLEtryBackTrack(hss, laWeights, lw - selW, hsl)) {
-		ok = true;
-	}
-	if (ok) {
-		int rmClauses = 0;
-		if (pi.labelPolarity(litVariable(lb), objective) == VAR_TRUE) {
-			rmClauses = setVariable(litVariable(lb), true);
+
+	vector<bool> selected(laWeights.size());
+	if (GSLEtryBackTrack(hss, laWeights, lw - selW, hsl, selected)) {
+		int tci = -1;
+		if (plog) {
+			vector<pair<int, int> > witness;
+			for (int l : sel) witness.emplace_back(pi.labelPolarity(l, objective)==VAR_TRUE?negLit(l):posLit(l), -1);
+			for (int i=0; i<(int)selected.size(); ++i) if (selected[i]) witness.emplace_back(pi.labelPolarity(cc[i], objective)==VAR_TRUE?negLit(cc[i]):posLit(cc[i]), -1);
+			witness.emplace_back(litNegation(lb), -1);
+			vector<int> cl = {litNegation(lb)};
+			tci = plog->add_red_clause(cl, witness, 1);
 		}
-		else {
-			rmClauses = setVariable(litVariable(lb), false);
-		}
+		int rmClauses = setVariable(litNegation(lb), tci);
+		if (plog) plog->delete_clause_vid(tci, litNegation(lb));
+
 		assert(pi.isVarRemoved(litVariable(lb)));
 		rLog.removeClause(rmClauses);
 		rLog.removeLabel(1);
@@ -166,6 +168,7 @@ int Preprocessor::doGSLE() {
 		rLog.stopTechnique(Log::Technique::GSLE);
 		return 0;
 	}
+	if (plog && plogDebugLevel>=1) plog->comment("start GSLE");
 	vector<int> checkVar = pi.tl.getTouchedVariables("GSLE");
 	if (rLog.isTimeLimit()) {
 		auto cmp = [&](int var1, int var2) {
@@ -183,12 +186,18 @@ int Preprocessor::doGSLE() {
 				if (pi.labelIndexMask(var) != (1<<objective)) continue;
 				if (pi.isVarRemoved(var)) continue;
 				if (pi.labelPolarity(var, objective) == VAR_TRUE && pi.litClauses[negLit(var)].size() == 0){
-					setVariable(var, true);
+					int tci = -1;
+					if (plog) tci = plog->add_red_clause_({posLit(var)}, posLit(var), 1);
+					setVariable(posLit(var), tci);
+					if (plog) plog->delete_clause_vid(tci, posLit(var));
 					removed++;
 					continue;
 				}
 				if (pi.labelPolarity(var, objective) == VAR_FALSE && pi.litClauses[posLit(var)].size() == 0){
-					setVariable(var, false);
+					int tci = -1;
+					if (plog) tci = plog->add_red_clause_({negLit(var)}, negLit(var), 1);
+					setVariable(negLit(var), tci);
+					if (plog) plog->delete_clause_vid(tci, negLit(var));
 					removed++;
 					continue;
 				}
@@ -213,12 +222,18 @@ int Preprocessor::doGSLE() {
 
 			int objective = pi.labelObjective(var);
 			if (pi.labelPolarity(var, objective) == VAR_TRUE && pi.litClauses[negLit(var)].size() == 0){
-				setVariable(var, true);
+				int tci = -1;
+				if (plog) tci = plog->add_red_clause_({posLit(var)}, posLit(var), 1);
+				setVariable(posLit(var), tci);
+				if (plog) plog->delete_clause_vid(tci, posLit(var));
 				removed++;
 				continue;
 			}
 			if (pi.labelPolarity(var, objective) == VAR_FALSE && pi.litClauses[posLit(var)].size() == 0){
-				setVariable(var, false);
+				int tci = -1;
+				if (plog) tci = plog->add_red_clause_({negLit(var)}, negLit(var), 1);
+				setVariable(negLit(var), tci);
+				if (plog) plog->delete_clause_vid(tci, negLit(var));
 				removed++;
 				continue;
 			}
@@ -232,6 +247,12 @@ int Preprocessor::doGSLE() {
 	}
 
 	log(removed, " labels removed by GSLE");
+
+	if (plog && plogDebugLevel>=1) {
+		plog->comment("GSLE finished, ", removed, " labels removed");
+		if (plogDebugLevel>=4) plogLogState();
+	}
+
 	rLog.stopTechnique(Log::Technique::GSLE);
 	return removed;
 }

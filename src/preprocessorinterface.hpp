@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <iostream>
+#include <fstream>
 
 #include "preprocessor.hpp"
 
@@ -43,8 +44,11 @@ public:
 	PreprocessorInterface(const std::vector<std::vector<int> >& clauses, const std::vector<uint64_t> & weights, uint64_t topWeight_, bool inProcessMode_ = false);
 	PreprocessorInterface(const std::vector<std::vector<int> >& clauses, const std::vector<std::pair<uint64_t, uint64_t> > & weights, uint64_t topWeight_, bool inProcessMode_ = false);
 	PreprocessorInterface(const std::vector<std::vector<int> >& clauses, const std::vector<std::vector<uint64_t> > & weights, uint64_t topWeight_, bool inProcessMode_ = false);
-
-
+private:
+	std::ofstream plogfile;
+	bool proof_output; // if true, proof ends with EQUIOPTIMAL file, if false, proof ends with EQUIOPTIMAL IMPLICIT
+public:
+	void logProof(std::string file, int debugLevel, bool noOutput);
 	/* Preprocesses the current maxsat instance with the given techniques
 	 * string, loglevel and timelimit.
 	 */

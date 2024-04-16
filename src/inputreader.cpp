@@ -40,6 +40,7 @@ int InputReader::readWeightedClause(istream& input) {
 	clauses.push_back(clause);
 
 	weights.push_back({});
+
 	while (weights.back().size() < objective) weights.back().push_back(0);
 	weights.back().push_back(weight);
 
@@ -203,7 +204,6 @@ int InputReader::readCardinalityConstraint(istream& inputF) {
 
 int InputReader::readLine(istream& input) {
 	input>>ws;
-	top = (1ull << 63ull) - 1;
 
 	while (input.peek() == 'c') {
 		currentLine++;
@@ -300,6 +300,8 @@ int InputReader::readClauses(istream& input, int problemType) {
 	} else if (problemType == 2) {
 		inputFormat = INPUT_FORMAT_WMOO;
 	}
+
+	top = (1ull << 63ull) - 1;
 
 	while (1) {
 		currentLine++;

@@ -16,13 +16,12 @@ bool Preprocessor::tryBCR(int c, int l11) {
 	int sizeLimit = pi.litClauses[l1].size() + pi.litClauses[l2].size();
 
 	for (int c1 : pi.litClauses[l1]) {
-		if (c1 != c) {
-			for (int l : pi.clauses[c1].lit) {
-				if (l == l2) return false;
-			}
+		if (c1 == c) continue;
+		for (int l : pi.clauses[c1].lit) {
+			if (l == l2) return false;
 		}
 		for (int c2 : pi.litClauses[l2]) {
-			if (c1 == c || c2 == c) continue;
+			if (c2 == c) continue;
 			vector<int> nc;
 			for (int l : pi.clauses[c1].lit) {
 				if (l != l1) nc.push_back(l);
@@ -44,6 +43,35 @@ bool Preprocessor::tryBCR(int c, int l11) {
 			newClauses.push_back(nc);
 		}
 	}
+
+	//for prooflogging
+	vector<pair<int, vector<int> > > clauses1;
+	vector<pair<int, vector<int> > > clauses2;
+	if (plog) {
+		for (int cc : pi.litClauses[l1]) {
+			if (cc==c) continue;
+			clauses1.emplace_back(cc, pi.clauses[cc].lit);
+			for (int i=0; i<(int)clauses1.back().S.size(); ++i) {
+				if (clauses1.back().S[i]==l1) {
+					swap(clauses1.back().S[i], clauses1.back().S.back());
+					clauses1.back().S.pop_back();
+					break;
+				}
+			}
+		}
+		for (int cc : pi.litClauses[l2]) {
+			if (cc==c) continue;
+			clauses2.emplace_back(cc, pi.clauses[cc].lit);
+			for (int i=0; i<(int)clauses2.back().S.size(); ++i) {
+				if (clauses2.back().S[i]==l2) {
+					swap(clauses2.back().S[i], clauses2.back().S.back());
+					clauses2.back().S.pop_back();
+					break;
+				}
+			}
+		}
+	}
+
 	vector<int> toRemove;
 	vector<vector<int> > nClauses;
 	pi.removeClause(pi.litClauses[litNegation(l1)][0]);
@@ -65,10 +93,13 @@ bool Preprocessor::tryBCR(int c, int l11) {
 			rLog.removeClause(1);
 		}
 	}
+	vector<int> ncids;
 	for (auto& nc : newClauses) {
+		if (plog) ncids.push_back(pi.clauses.size());
 		pi.addClause(nc);
 		rLog.removeClause(-1);
 	}
+	if (plog) plog->binary_core_removal(pi.litClauses[litNegation(l1)][0], pi.litClauses[litNegation(l2)][0], c, clauses1, clauses2, ncids);
 	rLog.removeLabel(1);
 	trace.removeWeight(pi.clauses[pi.litClauses[litNegation(l2)][0]].weights);
 	trace.BCR(l1, l2, nClauses);
@@ -84,6 +115,7 @@ int Preprocessor::doBCR() {
 		rLog.stopTechnique(Log::Technique::BCR);
 		return 0;
 	}
+	if (plog  && plogDebugLevel>=1) plog->comment("start BCR");
 	vector<int> checkVar = pi.tl.getTouchedVariables("BCR");
 	if (rLog.isTimeLimit()) {
 		auto cmp = [&](int var1, int var2) {
@@ -136,8 +168,14 @@ int Preprocessor::doBCR() {
 			assert(0);
 		}
 	}
-	rLog.stopTechnique(Log::Technique::BCR);
 	log(removed, " labels removed by BCR");
+
+	if (plog && plogDebugLevel>=1) {
+		plog->comment("BCR finished, ", removed, " labels removed");
+		if (plogDebugLevel>=4) plogLogState();
+	}
+
+	rLog.stopTechnique(Log::Technique::BCR);
 	return removed;
 }
 

@@ -175,9 +175,8 @@ uint64_t Preprocessor::findGoodModelA(vector<pair<uint64_t, int> >& labels, vect
 	int sz=0;
 	for (unsigned i=0; i<labels.size(); ++i) {
 		++sz;
-		if ((i>1 && labels[i].F>sum) || (sz>=p && labels[i].F != labels[i-1].F)) {
+		if ((i>1 && labels[i].F>sum) || (i>0 && sz>=p && labels[i].F != labels[i-1].F)) {
 			idx.push_back(i);
-			i+=p;
 			sz=0;
 		}
 		sum+=labels[i].F;
@@ -191,7 +190,6 @@ uint64_t Preprocessor::findGoodModelA(vector<pair<uint64_t, int> >& labels, vect
 
 uint64_t Preprocessor::findGoodModel(vector<bool>& best_model, int assumpsSearchIterLimit, double improveTimeLimit, int satLikeTries, double timeSatLike) {
 	prepareSatSolver();
-
 	vector<pair<uint64_t, int> > labels;
 	for (int lit=0; lit<2*pi.vars; ++lit) {
 		if (pi.isVarRemoved(litVariable(lit))) continue;

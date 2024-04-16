@@ -326,4 +326,8 @@ void Trace::printSolution(ostream& output, const vector<int>& trueLits, uint64_t
 	output.flush();
 }
 
+void Trace::setNbObjectives(int n) {
+    if ((int)removedWeight.size()<n) removedWeight.resize(n);
+}
+
 }

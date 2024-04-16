@@ -94,6 +94,9 @@ public:
 	int getExcessVar();
 	uint64_t getWeightSum(int objective);
 	std::vector<uint64_t> getWeightSums();
+
+	// for debugging purposes
+	void printClauses(std::ostream& out);
 };
 }
 #endif

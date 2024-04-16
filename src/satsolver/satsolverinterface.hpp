@@ -1,5 +1,5 @@
 #include <vector>
-
+#include "../prooflogger.h"
 
 #ifndef SATSOLVERINTERFACE_HPP
 #define SATSOLVERINTERFACE_HPP
@@ -8,6 +8,10 @@ using namespace std;
 
 class SATSolver {
 public:
+	virtual void setProofLogger(maxPreprocessor::ProofLogger* plog) = 0;
+
+	virtual void cleanLearntClausesFromProof() = 0;
+
 	virtual void addClause(const vector<int>& clause) = 0;
 
 	virtual void addClause(int lit) = 0;
@@ -15,14 +19,6 @@ public:
 	virtual void addClause(int lit1, int lit2) = 0;
 
 	virtual void addClause(int lit1, int lit2, int lit3) = 0;
-
-	void addClauses(vector<vector<int> >::const_iterator b, vector<vector<int> >::const_iterator e) {
-		while (b!=e) addClause(*b++);
-	};
-
-	void addClauses(const vector<vector<int> >& clauses) {
-		addClauses(clauses.begin(), clauses.end());
-	};
 
 	virtual bool solve(vector<int>& assumptions) = 0; // returns true if SAT, false if UNSAT
 

@@ -22,6 +22,7 @@ int Preprocessor::tryBCE(int lit) {
 		}
 		if (!f) {
 			toRemove.push_back(c1i);
+			if (plog) plog->delete_red_clause(c1i, lit);
 		}
 	}
 	for (int c : toRemove) {
@@ -38,6 +39,7 @@ int Preprocessor::doBCE() {
 		rLog.stopTechnique(Log::Technique::BCE);
 		return 0;
 	}
+	if (plog && plogDebugLevel>=1) plog->comment("start BCE");
 	int removed = 0;
 	vector<int> checkVar = pi.tl.getTouchedVariables("BCE");
 	if (rLog.isTimeLimit()) {
@@ -71,6 +73,12 @@ int Preprocessor::doBCE() {
 		}
 	}
 	log(removed, " removed by BCE");
+
+	if (plog && plogDebugLevel>=1) {
+		plog->comment("BCE finished, ", removed, " clauses removed by BCE");
+		if (plogDebugLevel>=4) plogLogState();
+	}
+
 	rLog.stopTechnique(Log::Technique::BCE);
 	return removed;
 }

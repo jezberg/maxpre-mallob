@@ -34,6 +34,7 @@ int Preprocessor::trySESlow(int lit) {
 	for (int c : toRemove) {
 		if (!pi.isClauseRemoved(c)) {
 			pi.removeClause(c);
+			if (plog) plog->delete_red_clause(c);
 			removed++;
 		}
 	}
@@ -85,8 +86,9 @@ void Preprocessor::trySEHash(vector<int>& clauses, int tLit, vector<int>& toRemo
 							}
 						}
 						else {
-							pi.pourAllWeight(c2.F, c1);
-							toRemove.push_back(c2.F);
+							// TODO: reimplement for proof logging
+							// pi.pourAllWeight(c2.F, c1);
+							// toRemove.push_back(c2.F);
 						}
 					}
 				}
@@ -130,8 +132,9 @@ void Preprocessor::trySEAmsLex(vector<int>& clauses, vector<int>& toRemove) {
 						}
 					}
 					else {
-						pi.pourAllWeight(c2, c1);
-						toRemove.push_back(c2);
+						// TODO: reimplement for proof logging
+						// pi.pourAllWeight(c2, c1);
+						// toRemove.push_back(c2);
 					}
 				}
 			}
@@ -172,8 +175,9 @@ void Preprocessor::trySE(vector<int>& clauses, vector<int>& toRemove) {
 						}
 					}
 					else {
-						pi.pourAllWeight(c2, c1);
-						toRemove.push_back(c2);
+						// TODO: reimplement for proof logging
+						// pi.pourAllWeight(c2, c1);
+						// toRemove.push_back(c2);
 					}
 				}
 			}
@@ -233,6 +237,7 @@ int Preprocessor::doSE() {
 		};
 		sort(checkLit.begin(), checkLit.end(), cmp);
 	}
+	if (plog && plogDebugLevel>=1) plog->comment("start SE");
 	bool skip = false;
 	vector<int> toRemove;
 	if (opt.skipTechnique > 0 && (int)checkLit.size() >= opt.skipTechnique*opt.skipSkipConstant) {
@@ -256,11 +261,18 @@ int Preprocessor::doSE() {
 	for (int c : toRemove) {
 		if (!pi.isClauseRemoved(c)) {
 			pi.removeClause(c);
+			if (plog) plog->delete_red_clause(c);
 			removed++;
 		}
 	}
 	rLog.removeClause(removed);
 	log(removed, " clauses removed by SE");
+
+	if (plog && plogDebugLevel>=1) {
+		plog->comment("SE finished, ", removed, " clauses removed");
+		if (plogDebugLevel>=4) plogLogState();
+	}
+
 	rLog.stopTechnique(Log::Technique::SE);
 	return removed;
 }

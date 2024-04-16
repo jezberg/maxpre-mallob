@@ -35,6 +35,16 @@ private:
 	int UNSATcalls;
 	int outOfBudgetCalls;
 public:
+	void setProofLogger(maxPreprocessor::ProofLogger* plog) {
+		solver.plog = plog;
+	}
+	void cleanLearntClausesFromProof() {
+		if (!solver.plog) return;
+		for (auto& t : solver.clause_vids)       solver.plog->delete_clause_vid(t.second);
+		for (int vid : solver.extra_clause_vids) solver.plog->delete_clause_vid(vid);
+		solver.clause_vids.clear();
+	}
+
 	void addClause(const vector<int>& clause) {
 		if (clause.size()==1) {
 			while ((clause[0]>>1)>topv) {solver.newVar();++topv;}

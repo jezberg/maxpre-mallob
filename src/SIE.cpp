@@ -47,8 +47,18 @@ int Preprocessor::try2SIE(int litX, int litY) {
 		}
 	}
 	int rmC = 0;
-	rmC += setVariable(litVariable(litX), litValue(litX));
-	rmC += setVariable(litVariable(litY), !litValue(litY));
+
+	int tci1 = -1; int tci2 = -1;
+	if (plog) {
+		tci1 = plog->add_red_clause_({litX}, {{litX, -1}, {litNegation(litY), -1}}, 1);
+		tci2 = plog->add_red_clause_({litNegation(litY)}, {{litX, -1}, {litNegation(litY), -1}}, 1);
+	}
+	rmC += setVariable(litX, tci1);
+	rmC += setVariable(litNegation(litY), tci2);
+	if (plog) {
+		plog->delete_clause_vid(tci1, litX);
+		plog->delete_clause_vid(tci2, litNegation(litY));
+	}
 	rLog.removeClause(rmC);
 	rLog.removeVariable(2);
 	assert(pi.isVarRemoved(litVariable(litX)));
@@ -60,7 +70,10 @@ int Preprocessor::try2SIE(int litX, int litY) {
 int Preprocessor::trySIE(int lit) {
 	if (pi.isVarRemoved(litVariable(lit))) return 0;
 	if (pi.litClauses[lit].size() == 0) {
-		int rm = setVariable(litVariable(lit), !litValue(lit));
+		int tci = -1;
+		if (plog) tci = plog->add_red_clause_({litNegation(lit)}, litNegation(lit), 1);
+		int rm = setVariable(litNegation(lit), tci);
+		if (plog) plog->delete_clause_vid(tci, litNegation(lit));
 		return rm;
 	}
 	if (pi.litClauses[lit].size() == 1){
@@ -139,12 +152,19 @@ int Preprocessor::trySIE(int lit) {
 
 int Preprocessor::doSIE() {
 	rLog.startTechnique(Log::Technique::SIE);
+	if (plog && plogDebugLevel>=1) plog->comment("start SIE");
 	int removed = 0;
 	vector<int> checkLit = pi.tl.getTouchedLiterals("SIE");
 	for (int lit : checkLit) {
 		removed += trySIE(lit);
 	}
 	log(removed, " clauses removed by SIE");
+
+	if (plog && plogDebugLevel>=1) {
+		plog->comment("SIE finished, ", removed, " clauses removed");
+		if (plogDebugLevel>=4) plogLogState();
+	}
+
 	rLog.stopTechnique(Log::Technique::SIE);
 	return removed;
 }

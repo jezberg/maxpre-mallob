@@ -191,6 +191,16 @@ int Preprocessor::tryBIG(int lit, bool doTC) {
 				}
 			}
 			if (unsat) {
+				pi.addClause({scc[0]});
+				pi.addClause({litNegation(scc[0])});
+				if (plog) {
+					int v1 = plog->add_rup_clause_({scc[0]}, 1);
+				 	int v2 = plog->add_rup_clause_({litNegation(scc[0])}, 1);
+					plog->map_clause(pi.clauses.size()-2, v1, 1);
+					plog->map_clause(pi.clauses.size()-1, v2, 1);
+				}
+				/*
+				// disabling this: does not seem to do anything essential (the instance is UNSAT) and causes problems in prooflogging
 				for (int l : scc) {
 					vector<int> pCls = pi.litClauses[l];
 					vector<int> nCls = pi.litClauses[litNegation(l)];
@@ -203,9 +213,8 @@ int Preprocessor::tryBIG(int lit, bool doTC) {
 						rLog.removeClause(1);
 					}
 				}
-				pi.addClause({scc[0]});
-				pi.addClause({litNegation(scc[0])});
 				rLog.removeVariable((int)scc.size() - 1);
+				*/
 				continue;
 			}
 			for (unsigned j = 0; j < scc.size(); j++) {
@@ -213,6 +222,11 @@ int Preprocessor::tryBIG(int lit, bool doTC) {
 				BIGu2[litVariable(scc[j])] = 3;
 			}
 			for (unsigned j = 1; j < scc.size(); j++) {
+				int tci1 = 0; int tci2 = 0;
+				if (plog) {
+					tci1 = plog->add_rup_clause_({litNegation(scc[j]), scc[0]}, 1);
+					tci2 = plog->add_rup_clause_({scc[j], litNegation(scc[0])}, 1);
+				}
 				vector<int> pCls = pi.litClauses[scc[j]];
 				vector<int> nCls = pi.litClauses[litNegation(scc[j])];
 				for (int c : pCls) {
@@ -231,10 +245,11 @@ int Preprocessor::tryBIG(int lit, bool doTC) {
 					if (fn) {
 						pi.removeClause(c);
 						rLog.removeClause(1);
-					}
-					else if (!f) {
+						if (plog) plog->delete_red_clause(c);
+					} else if (!f) {
 						pi.addLiteralToClause(scc[0], c);
-					}
+						if (plog) plog->clause_updated(c, pi.clauses[c].lit);
+					} else if (plog) plog->clause_updated(c, pi.clauses[c].lit);
 				}
 				for (int c : nCls) {
 					bool f = false;
@@ -246,10 +261,15 @@ int Preprocessor::tryBIG(int lit, bool doTC) {
 					if (fn) {
 						pi.removeClause(c);
 						rLog.removeClause(1);
-					}
-					else if (!f) {
+						if (plog) plog->delete_red_clause(c);
+					}	else if (!f) {
 						pi.addLiteralToClause(litNegation(scc[0]), c);
-					}
+						if (plog) plog->clause_updated(c, pi.clauses[c].lit);
+					} else if (plog) plog->clause_updated(c, pi.clauses[c].lit);
+				}
+				if (plog) {
+					plog->delete_clause_vid(tci1, litNegation(scc[j]));
+					plog->delete_clause_vid(tci2, scc[j]);
 				}
 				trace.setEqual(scc[0], scc[j]);
 			}
@@ -338,6 +358,7 @@ int Preprocessor::tryBIG(int lit, bool doTC) {
 	for (auto rm : rmLit) {
 		pi.removeLiteralFromClause(rm.F, rm.S);
 		rLog.removeLiteral(1);
+		if (plog) plog->clause_updated(rm.S, pi.clauses[rm.S].lit);
 		removed++;
 	}
 	sort(rmClause.begin(), rmClause.end());
@@ -345,20 +366,17 @@ int Preprocessor::tryBIG(int lit, bool doTC) {
 	for (int c : rmClause) {
 		pi.removeClause(c);
 		rLog.removeClause(1);
+		if (plog) plog->delete_red_clause(c);
 	}
 	sort(trueLits.begin(), trueLits.end());
 	trueLits.erase(unique(trueLits.begin(), trueLits.end()), trueLits.end());
 	for (int l : trueLits) {
-		int rmC = 0;
-		if (litValue(l) == true) {
-			rmC = setVariable(litVariable(l), true);
-		}
-		else {
-			rmC = setVariable(litVariable(l), false);
-		}
+		int tci = 0;
+		if (plog) tci = plog->add_rup_clause_({l}, 1);
 		removed++;
 		rLog.removeVariable(1);
-		rLog.removeClause(rmC);
+		rLog.removeClause(setVariable(l, tci));
+		if (plog) plog->delete_clause_vid(tci, l);
 	}
 	rLog.stopTechnique(Log::Technique::UH);
 	rLog.startTechnique(Log::Technique::EE);
@@ -371,6 +389,7 @@ int Preprocessor::doBIG(bool doTC) {
 		rLog.stopTechnique(Log::Technique::EE);
 		return 0;
 	}
+	if (plog && plogDebugLevel>=1) plog->comment("start BIG/EE");
 	int removed = 0;
 	BIGIt++;
 	if ((int)BIGu.size() < 2*pi.vars) BIGu.resize(2*pi.vars);
@@ -383,6 +402,12 @@ int Preprocessor::doBIG(bool doTC) {
 		removed += tryBIG(lit, doTC);
 	}
 	log(removed, " variables removed by EE");
+
+	if (plog && plogDebugLevel>=1) {
+		plog->comment("BIG/EE finished, ", removed, " variables removed");
+		if (plogDebugLevel>=4) plogLogState();
+	}
+
 	rLog.stopTechnique(Log::Technique::EE);
 	return removed;
 }

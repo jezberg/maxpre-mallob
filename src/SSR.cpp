@@ -28,17 +28,23 @@ bool Preprocessor::SSRC(int c1, int c2, int var) {
 	if (canP && canN) {
 		pi.removeLiteralFromClause(posLit(var), c1);
 		pi.removeClause(c2);
+		if (plog) {
+			plog->clause_updated(c1, pi.clauses[c1].lit);
+			plog->delete_red_clause(c2);
+		}
 		rLog.removeLiteral(1);
 		rLog.removeClause(1);
 		return true;
 	}
 	else if (canP) {
 		pi.removeLiteralFromClause(posLit(var), c1);
+		if (plog) plog->clause_updated(c1, pi.clauses[c1].lit);
 		rLog.removeLiteral(1);
 		return true;
 	}
 	else if (canN) {
 		pi.removeLiteralFromClause(negLit(var), c2);
+		if (plog) plog->clause_updated(c2, pi.clauses[c2].lit);
 		rLog.removeLiteral(1);
 		return true;
 	}
@@ -88,7 +94,7 @@ int Preprocessor::trySSRHash(int var) {
 	for (int c : pc) {
 		// do UP to avoid special case
 		if (pi.clauses[c].lit.size() == 1){
-			return setVariable(var, true);
+			return setVariable(posLit(var));
 		}
 		uint64_t h = 0;
 		for (int l : pi.clauses[c].lit) {
@@ -100,7 +106,7 @@ int Preprocessor::trySSRHash(int var) {
 	for (int c : nc) {
 		// do UP to avoid special case
 		if (pi.clauses[c].lit.size() == 1){
-			return setVariable(var, false);
+			return setVariable(negLit(var));
 		}
 		uint64_t h = 0;
 		for (int l : pi.clauses[c].lit) {
@@ -204,8 +210,12 @@ int Preprocessor::trySSR(int var) {
 
 				if (canP && canN) {
 					pi.removeLiteralFromClause(posLit(var), pi.litClauses[posLit(var)][i]);
-					rLog.removeLiteral(1);
 					pi.removeClause(pi.litClauses[negLit(var)][ii]);
+					if (plog) {
+						plog->clause_updated(pi.litClauses[posLit(var)][i], pi.clauses[pi.litClauses[posLit(var)][i]].lit);
+						plog->delete_red_clause(pi.litClauses[negLit(var)][ii]);
+					}
+					rLog.removeLiteral(1);
 					rLog.removeClause(1);
 					removed++;
 					f = true;
@@ -213,6 +223,7 @@ int Preprocessor::trySSR(int var) {
 				}
 				else if (canP) {
 					pi.removeLiteralFromClause(posLit(var), pi.litClauses[posLit(var)][i]);
+					if (plog) plog->clause_updated(pi.litClauses[posLit(var)][i], pi.clauses[pi.litClauses[posLit(var)][i]].lit);
 					rLog.removeLiteral(1);
 					removed++;
 					f = true;
@@ -220,6 +231,7 @@ int Preprocessor::trySSR(int var) {
 				}
 				else if (canN) {
 					pi.removeLiteralFromClause(negLit(var), pi.litClauses[negLit(var)][ii]);
+					if (plog) plog->clause_updated(pi.litClauses[negLit(var)][ii], pi.clauses[pi.litClauses[negLit(var)][ii]].lit);
 					rLog.removeLiteral(1);
 					removed++;
 					f = true;
@@ -274,6 +286,7 @@ int Preprocessor::doSSR() {
 		rLog.stopTechnique(Log::Technique::SSR);
 		return 0;
 	}
+	if (plog  && plogDebugLevel>=1) plog->comment("start SSR");
 	int eliminated = 0;
 	vector<int> checkVar = pi.tl.getModVariables("SSR");
 	if (rLog.isTimeLimit()) {
@@ -301,6 +314,12 @@ int Preprocessor::doSSR() {
 		}
 	}
 	log(eliminated, " eliminated by SSR");
+
+	if (plog && plogDebugLevel>=1) {
+		plog->comment("SSR finished, ", eliminated, " literals eliminated by SSR");
+		if (plogDebugLevel>=4) plogLogState();
+	}
+
 	rLog.stopTechnique(Log::Technique::SSR);
 	return eliminated;
 }

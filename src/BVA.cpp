@@ -56,7 +56,6 @@ int Preprocessor::canBVA(int c, int d, int lit) {
 int Preprocessor::tryBVA(int lit, unordered_map<uint64_t, int>& hashes) {
 	const bool noLabels = false;
 	if (noLabels && pi.isLabelVar(litVariable(lit))) return 0;
-	removeDuplicateClauses();
 	vector<int> mLit = {lit};
 	vector<int> mCls = pi.litClauses[lit];
 	int redu = 0;
@@ -108,6 +107,10 @@ int Preprocessor::tryBVA(int lit, unordered_map<uint64_t, int>& hashes) {
 				assert(rClause != -1);
 				pi.removeClause(rClause);
 				pi.removeLiteralFromClause(lit, p.S);
+				if (plog) {
+					plog->clause_updated(p.S, pi.clauses[p.S].lit);
+					plog->delete_red_clause(rClause);
+				}
 				if (hashes.size() > 0) addBVAHash(pi.clauses[p.S].lit, hashes);
 				return 1;
 			}
@@ -231,6 +234,7 @@ int Preprocessor::tryBVA(int lit, unordered_map<uint64_t, int>& hashes) {
 	for (int l : mLit) {
 		vector<int> newClause = {l, posLit(nVar)};
 		pi.addClause(newClause);
+		if (plog) plog->map_clause(pi.clauses.size()-1, plog->add_red_clause_({l, posLit(nVar)}, posLit(nVar), 1), 1);
 		realRedu--;
 		if (hashes.size() > 0) addBVAHash(newClause, hashes);
 	}
@@ -243,11 +247,13 @@ int Preprocessor::tryBVA(int lit, unordered_map<uint64_t, int>& hashes) {
 		}
 		newClause.push_back(negLit(nVar));
 		pi.addClause(newClause);
+		if (plog) plog->map_clause(pi.clauses.size()-1, plog->add_red_clause(newClause, negLit(nVar), 1), 1);
 		realRedu--;
 		if (hashes.size() > 0) addBVAHash(newClause, hashes);
 	}
 	for (int c : rmClauses) {
 		pi.removeClause(c);
+		if (plog) plog->delete_red_clause(c);
 		realRedu++;
 	}
 	assert(realRedu >= redu);
@@ -263,6 +269,8 @@ int Preprocessor::doBVA() {
 		rLog.stopTechnique(Log::Technique::BVA);
 		return 0;
 	}
+	if (plog && plogDebugLevel>=1) plog->comment("start BVA");
+	removeDuplicateClauses();
 	int removed = 0;
 	vector<int> checkLit = pi.tl.getTouchedLiterals("BVA");
 	vector<int> hClauses = pi.tl.getModClauses("BVAhash");
@@ -283,10 +291,30 @@ int Preprocessor::doBVA() {
 	for (int lit : checkLit) {
 		if (!rLog.requestTime(Log::Technique::BVA)) break;
 		if (pi.litClauses[lit].size() < 2) continue;
-		removed += tryBVA(lit, BVAHashTable);
+		int remove = tryBVA(lit, BVAHashTable);
+		removed += remove;
+		if (remove) {
+			if (!rLog.requestTime(Log::Technique::BVA)) break;
+			pi.tl.setItr("BVAhash");
+			if (removeDuplicateClauses()) {
+				vector<int> hClauses = pi.tl.getModClauses("BVAhash");
+				for (int c : hClauses) {
+					if (!rLog.requestTime(Log::Technique::BVA)) break;
+					if (!pi.isClauseRemoved(c)) {
+						addBVAHash(pi.clauses[c].lit, BVAHashTable);
+					}
+				}
+			}
+		}
 	}
 	pi.tl.setItr("BVAhash");
 	log(removed, " clauses removed by BVA");
+
+	if (plog && plogDebugLevel>=1) {
+		plog->comment("BVA finished, ", removed, " clauses removed");
+		if (plogDebugLevel>=4) plogLogState();
+	}
+
 	rLog.stopTechnique(Log::Technique::BVA);
 	return removed;
 }

@@ -15,7 +15,10 @@ int Preprocessor::tryFLP(vector<int> fLit, int clause) {
 	for (unsigned i=0; i<fLit.size(); ++i) b[i]=litNegation(fLit[i]);
 	if (!satSolver->testUPConflict(b, 2)) {
 		if (fLit.size() == 1) {
-			int rmClauses = setVariable(litVariable(fLit[0]), litValue(fLit[0]));
+			int tci = -1;
+			if (plog) tci = plog->add_rup_clause_({fLit[0]}, 1);
+			int rmClauses = setVariable(fLit[0], tci);
+			if (plog) plog->delete_clause_vid(tci, fLit[0]);
 			assert(pi.isVarRemoved(litVariable(fLit[0])));
 			rLog.removeClause(rmClauses);
 			rLog.removeLabel(1);
@@ -28,6 +31,7 @@ int Preprocessor::tryFLP(vector<int> fLit, int clause) {
 					rLog.removeLiteral(1);
 				}
 			}
+			if (plog) plog->clause_updated(clause, pi.clauses[clause].lit);
 		}
 		return 1;
 	}
@@ -74,15 +78,10 @@ int Preprocessor::tryFLP(vector<int> fLit, int clause) {
 	if (conflict) {
 		if (fLit.size() == 1) {
 			int rmClauses;
-			if (litValue(fLit[0]) == true) {
-				rmClauses = setVariable(litVariable(fLit[0]), true);
-			}
-			else {
-				rmClauses = setVariable(litVariable(fLit[0]), false);
-			}
+			rmClauses = setVariable(fLit[0]);
 			assert(pi.isVarRemoved(litVariable(fLit[0])));
 			rLog.removeClause(rmClauses);
-			if (pi.isLabel[litVariable(fLit[0])]) rLog.removeLabel(1); // TODO: this should be always the case...? 
+			if (pi.isLabel[litVariable(fLit[0])]) rLog.removeLabel(1); // TODO: this should be always the case...?
 			else rLog.removeVariable(1);
 		}
 		else {
@@ -106,6 +105,7 @@ int Preprocessor::doFLP() {
 		rLog.stopTechnique(Log::Technique::FLP);
 		return 0;
 	}
+	if (plog && plogDebugLevel>=1) plog->comment("start FLP");
 	prepareSatSolver();
 	int removed = 0;
 	for (int c = 0; c < (int)pi.clauses.size(); c++) {
@@ -121,6 +121,12 @@ int Preprocessor::doFLP() {
 		if (lbs.size() > 0 && f) removed += tryFLP(lbs, c);
 	}
 	log(removed, " cores found by FLP");
+
+	if (plog && plogDebugLevel>=1) {
+		plog->comment("FLP finished, ", removed, " cores found");
+		if (plogDebugLevel>=4) plogLogState();
+	}
+
 	rLog.stopTechnique(Log::Technique::FLP);
 	return removed;
 }

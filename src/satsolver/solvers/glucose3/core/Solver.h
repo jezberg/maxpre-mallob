@@ -37,6 +37,9 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "../core/BoundedQueue.h"
 #include "../core/Constants.h"
 
+#include "../../../prooflogger.h"
+#include <map>
+#include <vector>
 
 ///Users/jezberg/Documents/Research-repositories/loandra/solver/code/maxpre/satsolver/solvers/glucose-3.0/
 namespace GlucosePre {
@@ -121,7 +124,10 @@ public:
     void    checkGarbage();
 
 
-
+    // Prooflogging
+    maxPreprocessor::ProofLogger* plog;
+    std::map<CRef, int> clause_vids;
+    std::vector<int> extra_clause_vids;
 
     // Extra results: (read-only member variable)
     //

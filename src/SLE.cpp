@@ -22,9 +22,14 @@ int Preprocessor::trySLESlow(int lb1, int lb2) {
 	assert(pi.slabelPolarity(lb1) != 0);
 	assert(pi.slabelPolarity(lb2) != 0);
 
+	int lb1_lit = pi.slabelPolarity(lb1) == VAR_TRUE ? posLit(lb1) : negLit(lb1);
+	int lb2_lit = pi.slabelPolarity(lb2) == VAR_TRUE ? posLit(lb2) : negLit(lb2);
+
 	vector<int> cs1;
 	vector<int> cs2;
 	vector<uint64_t> w1, w2;
+
+
 	if (pi.slabelPolarity(lb1) == VAR_TRUE) {
 		if (pi.litClauses[posLit(lb1)].size()>1) return 0;
 		cs1 = pi.litClauses[negLit(lb1)];
@@ -52,24 +57,26 @@ int Preprocessor::trySLESlow(int lb1, int lb2) {
 	int rmClauses = 0;
 
 	if (s1 && pi.wDominates(w1, w2)) {
-		if (pi.slabelPolarity(lb1) == VAR_TRUE) {
-			rmClauses = setVariable(lb1, true);
-		}
-		else {
-			rmClauses = setVariable(lb1, false);
-		}
+		int tci = -1;
+		if (plog) tci = plog->add_red_clause_({lb1_lit}, {{lb1_lit, -1}, {litNegation(lb2_lit), -1}}, 1);
+
+		rmClauses = setVariable(lb1_lit, tci);
+
+		if (plog) plog->delete_clause_vid(tci, lb1_lit);
+
 		assert(pi.isVarRemoved(lb1));
 		rLog.removeClause(rmClauses);
 		rLog.removeLabel(1);
 		return 1;
 	}
 	else if(s2 && pi.wDominates(w2, w1)) {
-		if (pi.slabelPolarity(lb2) == VAR_TRUE) {
-			rmClauses = setVariable(lb2, true);
-		}
-		else {
-			rmClauses = setVariable(lb2, false);
-		}
+		int tci = -1;
+		if (plog) tci =plog->add_red_clause_({lb2_lit}, {{lb2_lit, -1}, {litNegation(lb1_lit), -1}}, 1);
+
+		rmClauses = setVariable(lb2_lit, tci);
+
+		if (plog) plog->delete_clause_vid(tci, lb2_lit);
+
 		assert(pi.isVarRemoved(lb2));
 		rLog.removeClause(rmClauses);
 		rLog.removeLabel(1);
@@ -85,6 +92,7 @@ int Preprocessor::doSLE() {
 		rLog.stopTechnique(Log::Technique::SLE);
 		return 0;
 	}
+	if (plog && plogDebugLevel>=1) plog->comment("start SLE");
 	vector<int> checkVar = pi.tl.getTouchedVariables("SLE");
 	if (rLog.isTimeLimit()) {
 		auto cmp = [&](int var1, int var2) {
@@ -98,13 +106,19 @@ int Preprocessor::doSLE() {
 		if (pi.isVarRemoved(var)) continue;
 		if (!rLog.requestTime(Log::Technique::SLE)) break;
 
-		if (pi.litClauses[negLit(var)].size() == 0){
-			setVariable(var, true);
+		if (pi.litClauses[negLit(var)].size() == 0) {
+			int tci = -1;
+			if (plog) tci = plog->add_red_clause_({posLit(var)}, posLit(var), 1);
+			setVariable(posLit(var), tci);
+			if (plog) plog->delete_clause_vid(tci, posLit(var));
 			removed++;
 			continue;
 		}
-		if (pi.litClauses[posLit(var)].size() == 0){
-			setVariable(var, false);
+		if (pi.litClauses[posLit(var)].size() == 0) {
+			int tci = -1;
+			if (plog) tci = plog->add_red_clause_({negLit(var)}, negLit(var), 1);
+			setVariable(negLit(var), tci);
+			if (plog) plog->delete_clause_vid(tci, negLit(var));
 			removed++;
 			continue;
 		}
@@ -132,6 +146,12 @@ int Preprocessor::doSLE() {
 	}
 
 	log(removed, " labels removed by SLE");
+
+	if (plog && plogDebugLevel>=1) {
+		plog->comment("SLE finished, ", removed, " labels removed by SLE");
+		if (plogDebugLevel>=4) plogLogState();
+	}
+
 	rLog.stopTechnique(Log::Technique::SLE);
 	return removed;
 }

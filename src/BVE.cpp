@@ -391,7 +391,7 @@ int Preprocessor::tryBVE2(int var) {
 		}
 	}
 
-	vector<vector<int> > newClauses;
+	vector<pair<vector<int>, pair<int, int> > > newClauses;
 	for (int i = 0; i < (int)pi.litClauses[posLit(var)].size(); i++) {
 		for (int ii = 0; ii < (int)pi.litClauses[negLit(var)].size(); ii++) {
 			if (defFound && (isPosDef[i] == isNegDef[ii])) continue;
@@ -416,42 +416,44 @@ int Preprocessor::tryBVE2(int var) {
 
 			if (f) continue;
 			if ((int)newClauses.size() >= sizeLimit) return 0;
-			newClauses.push_back(vector<int>());
+			newClauses.push_back({vector<int>(), {pi.litClauses[posLit(var)][i], pi.litClauses[negLit(var)][ii]}});
 			j2 = 0;
 			for (unsigned j = 0; j < c1.size(); j++) {
 				while (j2 < c2.size() && c2[j2] <= c1[j]) {
 					if (litVariable(c2[j2]) != var) {
-						newClauses.back().push_back(c2[j2]);
+						newClauses.back().F.push_back(c2[j2]);
 					}
 					j2++;
 				}
-				if (!(newClauses.back().size() > 0 && newClauses.back().back() == c1[j]) && litVariable(c1[j]) != var) {
-					newClauses.back().push_back(c1[j]);
+				if (!(newClauses.back().F.size() > 0 && newClauses.back().F.back() == c1[j]) && litVariable(c1[j]) != var) {
+					newClauses.back().F.push_back(c1[j]);
 				}
 			}
 			while (j2 < c2.size()) {
 				if (litVariable(c2[j2]) != var) {
-					newClauses.back().push_back(c2[j2]);
+					newClauses.back().F.push_back(c2[j2]);
 				}
 				j2++;
 			}
 		}
 	}
-
+	for (auto& nc : newClauses) {
+		pi.addClause(nc.F);
+		if (plog) plog->map_clause(pi.clauses.size()-1, plog->resolve_clauses(nc.S.F, nc.S.S, 1), 1);
+	}
 	vector<vector<int> > nClauses;
 	vector<int> toRemove;
 	for (int c : pi.litClauses[posLit(var)]) {
 		toRemove.push_back(c);
+		if (plog) plog->delete_red_clause(c, posLit(var));
 	}
 	for (int c : pi.litClauses[negLit(var)]) {
 		toRemove.push_back(c);
 		nClauses.push_back(pi.clauses[c].lit);
+		if (plog) plog->delete_red_clause(c, negLit(var));
 	}
 	for (int c : toRemove) {
 		pi.removeClause(c);
-	}
-	for (auto& nc : newClauses) {
-		pi.addClause(nc);
 	}
 	trace.BVE(var, nClauses);
 
@@ -554,6 +556,7 @@ int Preprocessor::doBVE() {
 		rLog.stopTechnique(Log::Technique::BVE);
 		return 0;
 	}
+	if (plog && plogDebugLevel>=1) plog->comment("start BVE");
 	int eliminated = 0;
 	vector<int> checkVar = pi.tl.getTouchedVariables("BVE");
 	if (rLog.isTimeLimit()) {
@@ -591,6 +594,12 @@ int Preprocessor::doBVE() {
 		}
 	}
 	log(eliminated, " eliminated by BVE");
+
+	if (plog && plogDebugLevel>=1) {
+		plog->comment("BVE finished, ", eliminated, " variables eliminated by BVE");
+		if (plogDebugLevel>=4) plogLogState();
+	}
+
 	rLog.stopTechnique(Log::Technique::BVE);
 	return eliminated;
 }

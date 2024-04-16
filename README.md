@@ -1,6 +1,7 @@
-# MaxPRE 2.1 MaxSAT preprocessor
+# MaxPRE 2.2 MaxSAT preprocessor
 
-MaxPre is a preprocessor for MaxSAT and (since version 2.1) multi-objective MaxSAT.
+MaxPre is a preprocessor for MaxSAT and (since version 2.1) multi-objective MaxSAT,
+that supports verified preprocessing for MaxSAT (since version 2.2).
 
 ## Basic use and flags
 
@@ -17,6 +18,17 @@ Another way to do the same thing:
 ```
 ./preprocessor test.wcnf solve -solver=./solver -techniques=[bu]#[buvsrg] > solution.sol  
 ```
+
+## Proof logging
+
+To use proof logging, use parameter `-proof=filename`.
+The following command preprocesses file test.wcnf, prints output instance
+to file output.wcnf and proof to file proof.pbp.
+
+```
+./preprocessor test.wcnf preprocess -proof=proof.pbp > output.wcnf
+```
+
 
 ### Techniques
 

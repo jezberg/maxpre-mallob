@@ -55,6 +55,13 @@ namespace maxPreprocessor {
 		init(clauses);
 	}
 
+	void PreprocessorInterface::logProof(std::string fname, int debugLevel, bool noOutput) {
+		if (fname=="") return;
+		plogfile.open(fname);
+		proof_output = !noOutput;
+		preprocessor.logProof(plogfile, debugLevel);
+	}
+
 	vector<uint64_t> PreprocessorInterface::getRemovedWeight() {
 		return preprocessor.trace.removedWeight;
 	}
@@ -73,17 +80,43 @@ namespace maxPreprocessor {
 	}
 
 	void PreprocessorInterface::getInstanceClausesAndLabels(std::vector<std::vector<int> >& retClauses, std::vector<int>& retLabels) {
-
 		retClauses = preprocessedInstance.clauses;
 		for (unsigned i = 0; i < preprocessedInstance.labels.size(); i++) {
 			retLabels.push_back(litToSolver(litToDimacs(preprocessedInstance.labels[i].F)));
 		}
+		int i=0;
 		for (auto& clause : retClauses) {
 			for (int& lit : clause) {
+				int lit0 = lit;
 				lit = litToDimacs(lit);
 				variables = max(variables, abs(lit));
 				lit = litToSolver(lit);
 			}
+		}
+
+
+		if (ProofLogger* plog =  preprocessor.plog) {
+			if (proof_output) {
+				// TODO: this is not the most intuitive place to do prooflogging for mapping variables...
+				vector<pair<int, vector<int> > > original_clauses;
+				vector<pair<int, int> > mapping;
+				vector<pair<uint64_t, int> > objective;
+				for (int i=0; i<preprocessedInstance.clauses.size(); ++i) {
+					for (int l : preprocessedInstance.clauses[i]) {
+						if (litValue(l))mapping.emplace_back(l, litFromDimacs(litToSolver(litToDimacs(l))));
+						else            mapping.emplace_back(litNegation(l), litFromDimacs(-litToSolver(litToDimacs(l))));
+					}
+					if (preprocessedInstance.weights[i]==HARDWEIGHT) {
+						original_clauses.emplace_back(preprocessedInstance.clause_cids[i], preprocessedInstance.clauses[i]);
+					} else {
+						objective.emplace_back(preprocessedInstance.weights[i], litNegation(preprocessedInstance.clauses[i][0]));
+					}
+				}
+				sort(mapping.begin(), mapping.end());
+				mapping.erase(unique(mapping.begin(), mapping.end()), mapping.end());
+				plog->remap_variables(original_clauses, mapping, objective);
+				plog->end_proof(true);
+			} else plog->end_proof(false);
 		}
 	}
 
@@ -368,10 +401,12 @@ namespace maxPreprocessor {
 
 		assert(outputFormat == INPUT_FORMAT_WPMS || outputFormat == INPUT_FORMAT_SAT || outputFormat == INPUT_FORMAT_WPMS22 || outputFormat == INPUT_FORMAT_WMOO);
 
+		/*
 		if (clauses.size() == 0) {
 			clauses.push_back({-1, 1});
 			weights.push_back({topWeight});
 		}
+		*/
 
 		if (outputFormat == INPUT_FORMAT_WPMS || outputFormat == INPUT_FORMAT_WPMS22) {
 			if (getUpperBound() !=  HARDWEIGHT) output << "c UB " << getUpperBound() << "\n";
