@@ -20,7 +20,6 @@
 #include "utility.hpp"
 using namespace std;
 
-
 #include "parseflags.cpp"
 
 int main(int argc, char* argv[]){
@@ -50,7 +49,7 @@ int main(int argc, char* argv[]){
 		printHelp(cout, intVars, boolVars, doubleVars, uint64Vars, false, false);
 		return 0;
 	}
-	if (argc < 3) {
+	if (argc < 2) {
 		printHelp(cout, intVars, boolVars, doubleVars, uint64Vars, true, true);
 		cout<<"Use -help for more detailed information"<<endl;
 		return 0;
@@ -61,13 +60,18 @@ int main(int argc, char* argv[]){
 		printHelp(cout, intVars, boolVars, doubleVars, uint64Vars, true, false);
 	}
 
-	string type(argv[2]);
-	if (type[0]='-') type = "preprocess";
+	int verb = parseVerb(flags);
+	bool iverb = parseVerbInstance(flags);
+	
+	string type(argc==2?"-":argv[2]);
+	if (type[0]=='-'){
+	    if (verb>0) cerr << "No mode given, defaulting to preprocess." << endl;
+		if (iverb>0) cout<<"c No mode given, defaulting to preprocess."<<endl;
+	    type = "preprocess";
+	}
 
 	assert(type == "solve" || type == "preprocess" || type == "reconstruct");
 
-	int verb = parseVerb(flags);
-	bool iverb = parseVerbInstance(flags);
 
 	string file(argv[1]);
 	if (type == "reconstruct") {
@@ -199,7 +203,7 @@ int main(int argc, char* argv[]){
 		return 0;
 	}
 
-	int outputFormat = parseOutputFormat(flags, maxPreprocessor::INPUT_FORMAT_WPMS22, inputReader.inputFormat, verb, iverb);
+	int outputFormat = parseOutputFormat(flags, inputReader.inputFormat, inputReader.inputFormat, verb, iverb);
 
 
 	maxPreprocessor::PreprocessorInterface pif(inputReader.clauses, inputReader.weights, inputReader.top);

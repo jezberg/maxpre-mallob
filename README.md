@@ -1,36 +1,252 @@
-# MaxPRE 2.2 MaxSAT preprocessor
+# MaxPre 2.2 MaxSAT preprocessor
 
 MaxPre is a preprocessor for MaxSAT and (since version 2.1) multi-objective MaxSAT,
-that supports verified preprocessing for MaxSAT (since version 2.2).
+that supports certified preprocessing for (single-objective) MaxSAT via proof logging (since version 2.2).
 
 ## Basic use and flags
 
-The first argument is the instance file, the second is preprocess, reconstruct or solve.
+Compile MaxPre with `make`.
+
+When running MaxPre as a stand-alone tool, the first argument is the instance file (in [WCNF file format](https://maxsat-evaluations.github.io/2022/rules.html#input)) followed by the mode, which can be `preprocess`, `reconstruct` or `solve`. If mode is not given, default mode `preprocess` is assumed.
 
 An example of using the preprocessor:  
 ```
-./preprocessor test.wcnf preprocess -techniques=[bu]#[buvsrg] -mapfile=test.map > preprocessed.wcnf
+./maxpre test.wcnf -techniques=[bu]#[buvsrg] -mapfile=test.map > preprocessed.wcnf
 ./solver < preprocessed.wcnf > sol0.sol
-./preprocessor sol0.sol reconstruct -mapfile=test.map > solution.sol
+./maxpre sol0.sol reconstruct -mapfile=test.map > solution.sol
 ```
 
 Another way to do the same thing:  
 ```
-./preprocessor test.wcnf solve -solver=./solver -techniques=[bu]#[buvsrg] > solution.sol  
+./maxpre test.wcnf solve -solver=./solver -techniques=[bu]#[buvsrg] > solution.sol  
 ```
 
-## Proof logging
+## Certified Preprocessing
 
-To use proof logging, use parameter `-proof=filename`.
-The following command preprocesses file test.wcnf, prints output instance
-to file output.wcnf and proof to file proof.pbp.
+To use MaxPre with proof logging, use parameter `-proof=<filename.pbp>`.
+The following command preprocesses file `input.wcnf`, prints output instance
+to file `output.wcnf` and a [pseudo-Boolean proof for equioptimality](https://gitlab.com/MIAOresearch/software/VeriPB) to file `proof.pbp`.
 
 ```
-./preprocessor test.wcnf preprocess -proof=proof.pbp > output.wcnf
+./maxpre input.wcnf -proof=proof.pbp > output.wcnf
 ```
 
+The proof can then be checked with [VeriPB](https://gitlab.com/MIAOresearch/software/VeriPB) by the following command,
+which reads the original instance from file `input.wcnf`, the instance produced by MaxPre from file `output.wcnf` and the proof from file `proof.pbp`.
 
-### Techniques
+```
+veripb --wcnf input.wcnf proof.pbp output.wcnf
+```
+
+To check the proof with formally verified proof checker [CakePB](https://gitlab.com/MIAOresearch/software/cakepb/-/tree/2082f356c227630100dec7bb5a9fc856849e7d41), run VeriPB with `--proofOutput` parameter to produce kernel proof.
+The following command reads the original MaxSAT instance from file `input.wcnf`, the instance produced by MaxPre from file `output.wcnf` and the kernel proof produced by VeriPB from file `kernel_proof.pbp`.
+
+```
+./cake_pb_wcnf input.wcnf kernel_proof.pbp output.wcnf
+```
+
+More details about certified preprocessing in the following paper.
+<p>
+<details>
+<summary>
+Hannes Ihalainen, Andy Oertel, Yong Kiam Tan, Jeremias Berg, Matti Järvisalo, Magnus O. Myreen, and Jakob Nordström.
+Certified MaxSAT preprocessing.
+IJCAR, 2024.
+</summary>
+
+```
+@inproceedings{IOTBJMN24CertifiedPreprocessing,
+  author    = {Hannes Ihalainen and Andy Oertel and Yong Kiam Tan and Jeremias Berg and Matti J{\"{a}}rvisalo and Magnus O. Myreen and Jakob Nordstr{\"{o}}m},
+  title     = {Certified MaxSAT preprocessing},
+  pages     = {??\nobreakdash--??},
+  booktitle = {Proceedings of the 12th International Joint Conference
+on Automated Reasoning ({IJCAR}~'24)},
+  series    = {??},
+  volume    = {??},
+  publisher = {??},
+  year      = {2024},
+}
+```
+</details>
+</p>
+
+## MaxPre for Multi-Objective Optimization
+
+To use MaxPre (as a stand-alone tool) to preprocess multiobjective optimization problems, use flag `-problemtype=mcnf`.
+The input file should be given in MCNF file format, detailed [here](https://bitbucket.org/coreo-group/mo-prepro/src/master/cp23/).
+
+More details on preprocessing for multi-objective instances in the following paper.
+<p>
+<details>
+<summary>
+Christoph Jabs, Jeremias Berg, Hannes Ihalainen, and, Matti Järvisalo.
+Preprocessing in SAT-Based Multi-Objective Combinatorial Optimization.
+CP, 2023.
+</summary>
+
+```
+@inproceedings{JBIJ23PreprocessingMO,
+	author    = {Christoph Jabs and Jeremias Berg and Hannes Ihalainen and Matti J{\"{a}}rvisalo},
+  title     = {Preprocessing in SAT-Based Multi-Objective Combinatorial Optimization},
+  pages     = {18:1\nobreakdash--18:20},
+  booktitle = {Proceedings of the 29th International Conference on Principles and Practice of Constraint Programming, ({CP}~'23)},
+  series    = {LIPIcs},
+  volume    = {280},
+  publisher = {Schloss Dagstuhl - Leibniz-Zentrum f{\"{u}}r Informatik},
+  year      = {2023},
+}
+```
+
+</details>
+</p>
+
+
+
+
+
+## How to Cite MaxPre 2
+
+To cite MaxPre 2, cite one or both of the following papers
+
+<p>
+<details>
+<summary>
+Hannes Ihalainen, Jeremias Berg and Matti Järvisalo.
+Clause Redundancy and Preprocessing in Maximum Satisfiability.
+CP, 2023.
+</summary>
+
+```
+@inproceedings{IBJ22ClauseRedundancy,
+  author    = {Hannes Ihalainen and Jeremias Berg and Matti J{\"{a}}rvisalo},
+  title     = {Clause Redundancy and Preprocessing in Maximum Satisfiability},
+  pages     = {75\nobreakdash--94},
+  booktitle = {Proceedings of the 11th International Joint Conference
+               on Automated Reasoning ({IJCAR}~'22)},
+  year      = {2022},
+  month     = aug,
+  series    = {Lecture Notes in Computer Science},
+  volume    = {13385},
+  publisher = {Springer},
+}
+```
+
+</details>
+</p>
+
+<p>
+<details>
+<summary>
+Tuukka Korhonen, Jeremias Berg, Paul Saikko and Matti Järvisalo
+MaxPre: An Extended MaxSAT Preprocessor.
+SAT 2017.
+</summary>
+
+```
+@inproceedings{KBSJMaxPre,
+  author    = {Tuukka Korhonen and Jeremias Berg and Paul Saikko and Matti J{\"{a}}rvisalo},
+  title     = {Clause Redundancy and Preprocessing in Maximum Satisfiability},
+  pages     = {449\nobreakdash--456},
+  booktitle = {Proceedings of the 20th International Conference on Theory and Applications of Satisfiability Testing, ({SAT}~'17)},
+  year      = {2017},
+  series    = {Lecture Notes in Computer Science},
+  volume    = {10491},
+  publisher = {Springer},
+	editor    = {Serge Gaspers and Toby Walsh},
+}
+```
+
+</details>
+</p>
+
+If you use MaxPre for preprocessing for multi-objective instances, please cite
+
+<p>
+<details>
+<summary>
+Christoph Jabs, Jeremias Berg, Hannes Ihalainen, and, Matti Järvisalo.
+Preprocessing in SAT-Based Multi-Objective Combinatorial Optimization.
+CP, 2023.
+</summary>
+
+```
+@inproceedings{JBIJ23PreprocessingMO,
+	author    = {Christoph Jabs and Jeremias Berg and Hannes Ihalainen and Matti J{\"{a}}rvisalo},
+  title     = {Preprocessing in SAT-Based Multi-Objective Combinatorial Optimization},
+  pages     = {18:1\nobreakdash--18:20},
+  booktitle = {Proceedings of the 29th International Conference on Principles and Practice of Constraint Programming, ({CP}~'23)},
+  series    = {LIPIcs},
+  volume    = {280},
+  publisher = {Schloss Dagstuhl - Leibniz-Zentrum f{\"{u}}r Informatik},
+  year      = {2023},
+}
+```
+</details>
+</p>
+
+If you use MaxPre for certified preprocessing, please cite
+
+<p>
+<details>
+<summary>
+Hannes Ihalainen, Andy Oertel, Yong Kiam Tan, Jeremias Berg, Matti Järvisalo, Magnus O. Myreen, and Jakob Nordström.
+Certified MaxSAT preprocessing.
+IJCAR, 2024.
+</summary>
+
+```
+@inproceedings{IOTBJMN24CertifiedPreprocessing,
+  author    = {Hannes Ihalainen and Andy Oertel and Yong Kiam Tan and Jeremias Berg and Matti J{\"{a}}rvisalo and Magnus O. Myreen and Jakob Nordstr{\"{o}}m},
+  title     = {Certified MaxSAT preprocessing},
+  pages     = {??\nobreakdash--??},
+  booktitle = {Proceedings of the 12th International Joint Conference
+on Automated Reasoning ({IJCAR}~'24)},
+  series    = {??},
+  volume    = {??},
+  publisher = {??},
+  year      = {2024},
+}
+```
+</details>
+</p>
+
+
+## More detailed information
+
+### Dependencies
+
+MaxPre supports reading input instance in compressed `.xz` and `.gz` formats.
+This support uses Boost library.
+To compile without Boost and support for compressed formats, compile with option `make with_zlib=0`.
+
+### Preprocess mode
+
+In preprocess mode, MaxPre preprocesses given input file and prints output file in standard output.
+Use parameter `-mapfile` to save recostruction map to file (see reconstruct).
+
+### Reconstruct mode
+
+In reconstruct mode, MaxPre reads a solution of a MaxSAT solver (assumed to be in the [standard format](https://maxsat-evaluations.github.io/2022/rules.html#output)) and a reconstruction map from given file.
+MaxPre then outputs a reconstructed solution (in the [standard format](https://maxsat-evaluations.github.io/2022/rules.html#output))
+
+The reconstruction also works for multiobjective MaxSAT.
+However, there is no currently implementation for support any separate solution format for multiobjective optimization in MaxPre, so the output MaxPre produces will be MaxSAT output format.
+
+### Solve mode
+
+In solve mode, MaxPre preprocesses instance, then invokes a solver defined by parameters `-solver` and `-solverflags`.
+The standard output of the solver is directed to a file defined by parameter `-solfile`.
+If parameter `-solfile` is not given, default file `sol0.sol` will be used.
+Then MaxPre reads the solution from the file and reconstructs and outputs a solution to the original instance.
+
+### API
+
+MaxPre offers an API for integration with MaxSAT solvers. Use `make lib` to make
+the static library file and include `preprocessorinterface.hpp` to use it. The API
+is documented in `preprocessorinterface.hpp` and supports single and
+multi-objective problems.
+
+### Preprocessing Techniques
 
 `-techniques` (string, default: `[bu]#[buvsrgc]`)
 
@@ -74,11 +290,11 @@ For example `-solver=./LMHS -solverflags="--infile-assumps --no-preprocess"` res
 
 The file to write the solution reconstruction map
 
-`-problemtype` (string: `{maxsat, sat, multiobj}`, default: `maxsat`)
+`-problemtype` (string: `{maxsat, sat, mcnf}`, default: `maxsat`)
 
 Should the problem be preprocessed as a MaxSAT, multi-objective MaxSAT, or SAT instance
 
-`-outputformat` (string: `{auto, wpms, wpms22, sat, moo}`, default: `wpms22`)
+`-outputformat` (string: `{auto, wpms, wpms22, sat, mcnf}`, default: `wpms22`)
 Defines the format in which the preprocessed instance is printed.
 When option `auto` is selected, the outputformat will be same as the format of the input file.
 
@@ -112,8 +328,6 @@ Note: applying BCE will destroy all recognizable gate structures
 
 If verb is 0 the preprocessor will output less stuff to the standard error
 
-
-## More detailed information
 
 ### Actual order of simplifications
 
@@ -156,10 +370,3 @@ everything to fixpoint in 60 seconds without the timelimit flag, but with -timel
 it could use only 30 seconds not get as much preprocessing done. It is not recommended
 to try to optimize the time used by the preprocessor by using the timelimit flag, but
 rather to use it for an upper bound for the time used by the preprocessor.
-
-## API
-
-Maxpre offers an API for integration with MaxSAT solvers. Use `make lib` to make
-the static library file and include `preprocessorinterface.hpp` to use it. The API
-is documented in `preprocessorinterface.hpp` and supports single and
-multi-objective problems.

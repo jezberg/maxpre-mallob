@@ -167,7 +167,7 @@ int parseProblemType(map<string, string>& flags, int verb, int iverb) {
 			if (iverb>0) cout<<"c Problem type is Max-SAT"<<endl;
 			if (verb>0)  cerr<<"Problem type is Max-SAT"<<endl;
 		}
-		else if (flags["problemtype"] == "biobj" || flags["problemtype"] == "multiobj" || flags["problemtype"] == "moo") {
+		else if (flags["problemtype"] == "biobj" || flags["problemtype"] == "multiobj" || flags["problemtype"] == "moo" || flags["problemtype"] == "mcnf") {
 			problemType = 2;
 			if (iverb>0) cout<<"c Problem type is multiobjective optimization"<<endl;
 			if (verb>0)  cerr<<"Problem type is multiobjective optimization"<<endl;
@@ -440,7 +440,7 @@ int parseIOFormat(string option, string v, int defaultValue, int autoValue, int 
 	else if (v == "wpms")   ioformat = maxPreprocessor::INPUT_FORMAT_WPMS;
 	else if (v == "wpms22") ioformat = maxPreprocessor::INPUT_FORMAT_WPMS22;
 	else if (v == "sat")    ioformat = maxPreprocessor::INPUT_FORMAT_SAT;
-	else if (v == "moo")    ioformat = maxPreprocessor::INPUT_FORMAT_WMOO;
+	else if (v == "moo" || v == "mcnf" || v == "biobj" || v == "multiobj") ioformat = maxPreprocessor::INPUT_FORMAT_WMOO;
 	else {
 		cout << "c invalid " << option << " value " << v << endl;
 		cerr << "Invalid  " << option << "value " << v << endl;
@@ -568,13 +568,13 @@ void printHelp(ostream& out, map<string, int>& intVars, map<string, bool>& boolV
 	}
 	out<<"-problemtype (default: maxsat)"<<endl;
 	if (!shrt) {
-		out<<"\tstring: {maxsat, sat, moo}"<<endl;
+		out<<"\tstring: {maxsat, sat, mcnf}"<<endl;
 		out<<"\tShould the problem be preprocessed as a MaxSAT or SAT instance"<<endl;
 		out<<endl;
 	}
-	out<<"-outputformat (default: wpms22)"<<endl;
+	out<<"-outputformat (default: auto)"<<endl;
 	if (!shrt) {
-		out<<"\tstring: {auto, wpms, wpms22, sat, moo}"<<endl;
+		out<<"\tstring: {auto, wpms, wpms22, sat, mcnf}"<<endl;
 		out<<"\tBy default the preprocessor always gives the output in weighted partial MaxSAT format"<<endl;
 		out<<"\tOption 'auto' sets the format according to input file format."<<endl;
 		out<<endl;

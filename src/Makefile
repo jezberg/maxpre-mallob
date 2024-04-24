@@ -6,8 +6,9 @@ LIBS =
 LIBFILES = satsolver/solvers/lib/libglucose3.a
 SATOBJFILES = satsolver/solvers/glucose3/core/Solver.o satsolver/solvers/glucose3/utils/System.o
 
-
+ifndef with_zlib
 with_zlib = 'true'
+endif
 
 ifeq ($(with_zlib),'true')
 CFLAGS += -DWITH_ZLIB

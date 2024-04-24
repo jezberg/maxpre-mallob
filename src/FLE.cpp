@@ -596,10 +596,12 @@ int Preprocessor::doFLE(bool doRLE, bool findImplied, bool findRedImplied, bool 
 		return 0;
 	}
 	if (plog && plogDebugLevel>=1) plog->comment("start FLE");
-	while (fleActiveTechniques != redTechniques && (stats["FLE_stop_position"]+1)*opt.FLE_redTechniquesActivate > __builtin_popcount(fleActiveTechniques)) {
-		fleActiveTechniques |= (((redTechniques^fleActiveTechniques)-1) & redTechniques) ^ redTechniques;
+	if (redTechniques) {
+	    while (fleActiveTechniques != redTechniques && (stats["FLE_stop_position"]+1)*opt.FLE_redTechniquesActivate > __builtin_popcount(fleActiveTechniques)) {
+		    fleActiveTechniques |= (((redTechniques^fleActiveTechniques)-1) & redTechniques) ^ redTechniques;
+	    }
+	    redTechniques = fleActiveTechniques;
 	}
-	redTechniques = fleActiveTechniques;
 
 	prepareSatSolver();
 
