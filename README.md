@@ -38,7 +38,7 @@ which reads the original instance from file `input.wcnf`, the instance produced 
 veripb --wcnf input.wcnf proof.pbp output.wcnf
 ```
 
-To check the proof with formally verified proof checker [CakePB](https://gitlab.com/MIAOresearch/software/cakepb/-/tree/2082f356c227630100dec7bb5a9fc856849e7d41), run VeriPB with `--proofOutput` parameter to produce kernel proof.
+To check the proof with formally verified proof checker [CakePB](https://gitlab.com/MIAOresearch/software/cakepb/), run VeriPB with `--proofOutput` parameter to produce kernel proof.
 The following command reads the original MaxSAT instance from file `input.wcnf`, the instance produced by MaxPre from file `output.wcnf` and the kernel proof produced by VeriPB from file `kernel_proof.pbp`.
 
 ```
@@ -46,13 +46,15 @@ The following command reads the original MaxSAT instance from file `input.wcnf`,
 ```
 
 More details about certified preprocessing in the following paper.
-<p>
-<details>
-<summary>
+[comment]: <p>
+[comment]: <details>
+[comment]: <summary>
+
 Hannes Ihalainen, Andy Oertel, Yong Kiam Tan, Jeremias Berg, Matti Järvisalo, Magnus O. Myreen, and Jakob Nordström.
 Certified MaxSAT preprocessing.
 IJCAR, 2024.
-</summary>
+
+[comment]: </summary>
 
 ```
 @inproceedings{IOTBJMN24CertifiedPreprocessing,
@@ -67,8 +69,8 @@ on Automated Reasoning ({IJCAR}~'24)},
   year      = {2024},
 }
 ```
-</details>
-</p>
+[comment]: </details>
+[comment]: </p>
 
 ## MaxPre for Multi-Objective Optimization
 
@@ -76,13 +78,16 @@ To use MaxPre (as a stand-alone tool) to preprocess multiobjective optimization 
 The input file should be given in MCNF file format, detailed [here](https://bitbucket.org/coreo-group/mo-prepro/src/master/cp23/).
 
 More details on preprocessing for multi-objective instances in the following paper.
-<p>
-<details>
-<summary>
+
+[comment]: <p>
+[comment]: <details>
+[comment]: <summary>
+
 Christoph Jabs, Jeremias Berg, Hannes Ihalainen, and, Matti Järvisalo.
 Preprocessing in SAT-Based Multi-Objective Combinatorial Optimization.
 CP, 2023.
-</summary>
+
+[comment]: </summary>
 
 ```
 @inproceedings{JBIJ23PreprocessingMO,
@@ -97,8 +102,8 @@ CP, 2023.
 }
 ```
 
-</details>
-</p>
+[comment]: </details>
+[comment]: </p>
 
 
 
@@ -108,13 +113,15 @@ CP, 2023.
 
 To cite MaxPre 2, cite one or both of the following papers
 
-<p>
-<details>
-<summary>
+[comment]: <p>
+[comment]: <details>
+[comment]: <summary>
+
 Hannes Ihalainen, Jeremias Berg and Matti Järvisalo.
 Clause Redundancy and Preprocessing in Maximum Satisfiability.
 CP, 2023.
-</summary>
+
+[comment]: </summary>
 
 ```
 @inproceedings{IBJ22ClauseRedundancy,
@@ -131,16 +138,18 @@ CP, 2023.
 }
 ```
 
-</details>
-</p>
+[comment]: </details>
+[comment]: </p>
 
-<p>
-<details>
-<summary>
+[comment]: <p>
+[comment]: <details>
+[comment]: <summary>
+
 Tuukka Korhonen, Jeremias Berg, Paul Saikko and Matti Järvisalo
 MaxPre: An Extended MaxSAT Preprocessor.
 SAT 2017.
-</summary>
+
+[comment]: </summary>
 
 ```
 @inproceedings{KBSJMaxPre,
@@ -156,18 +165,20 @@ SAT 2017.
 }
 ```
 
-</details>
-</p>
+[comment]: </details>
+[comment]: </p>
 
 If you use MaxPre for preprocessing for multi-objective instances, please cite
 
-<p>
-<details>
-<summary>
+[comment]: <p>
+[comment]: <details>
+[comment]: <summary>
+
 Christoph Jabs, Jeremias Berg, Hannes Ihalainen, and, Matti Järvisalo.
 Preprocessing in SAT-Based Multi-Objective Combinatorial Optimization.
 CP, 2023.
-</summary>
+
+[comment]: </summary>
 
 ```
 @inproceedings{JBIJ23PreprocessingMO,
@@ -181,18 +192,21 @@ CP, 2023.
   year      = {2023},
 }
 ```
-</details>
-</p>
+
+[comment]: </details>
+[comment]: </p>
 
 If you use MaxPre for certified preprocessing, please cite
 
-<p>
-<details>
-<summary>
+[comment]: <p>
+[comment]: <details>
+[comment]: <summary>
+
 Hannes Ihalainen, Andy Oertel, Yong Kiam Tan, Jeremias Berg, Matti Järvisalo, Magnus O. Myreen, and Jakob Nordström.
 Certified MaxSAT preprocessing.
 IJCAR, 2024.
-</summary>
+
+[comment]: </summary>
 
 ```
 @inproceedings{IOTBJMN24CertifiedPreprocessing,
@@ -207,8 +221,9 @@ on Automated Reasoning ({IJCAR}~'24)},
   year      = {2024},
 }
 ```
-</details>
-</p>
+
+[comment]: </details>
+[comment]: </p>
 
 
 ## More detailed information
