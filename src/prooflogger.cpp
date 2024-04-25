@@ -868,7 +868,7 @@ void ProofLogger::labels_matched(vector<int>& cl1, vector<int>& cl2, int cid1, i
 
   // update database of mappings
   int l = clauses[lcid2].ulit;
-  if (l>=(int)lit_to_zlit.size()) lit_to_zlit.resize(l+2, -1);
+  if (l+1>=(int)lit_to_zlit.size()) lit_to_zlit.resize(l+2, -1);
   lit_to_zlit[l] = posLit(z-1);
   lit_to_zlit[litNegation(l)] = negLit(z-1);
   reset_clause_computed_strs(lcid2);
