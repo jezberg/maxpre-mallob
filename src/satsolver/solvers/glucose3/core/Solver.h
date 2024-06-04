@@ -37,7 +37,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "../core/BoundedQueue.h"
 #include "../core/Constants.h"
 
-#include "../../../prooflogger.h"
+#include "../../../../prooflogger.h"
 #include <map>
 #include <vector>
 
