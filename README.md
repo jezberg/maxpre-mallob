@@ -3,6 +3,34 @@ This is a copy of the MaxPRE repository, mean for testing distributed MaxSAT pre
 Below is the MaxPRE readme, it has not been updates so communication over the 
 e-mail
 
+# Usage for Mallob
+
+## Building
+
+You will want to run `make lib with_zlib=false` in the root. This will make the library into `lib/libmaxpre.a`
+You will want ot include that, as well as the header `parserinterface.hpp`
+
+## Using
+
+You create an object of the parserinterface class. 
+Then you call `read_file_init_interface` with an input wcnf file.
+Finally, you call `preprocess` and give it the technique string, and a timelimit in seconds. 
+The specifics of the technique string are given under Preprocessing Techniques in this readme. The default sting is: [bu]#[buvsrgc] 
+*Note* the timelimit is not fully deteministic, it is not checked as often as it should be. 
+
+Finally getInstance fills the ret_compressed_clauses and ret_objective with the preprocessed instance. 
+Specifically, ret_objective will contain pairs of uint_64 and int, representing the coefficient and the literal. 
+If the literal represented by the int is true, a cost equal to the coefficient is incurred.
+
+The rest of the parameters default values matches our sequential tests. we can talk about the parameters once the system is up and running.
+ 
+The reconstruct solution gets you a model of the original formula given a solution to the preprocessed one, get ub and lb return bounds proved by preprocessing. The UB will only be updated if the technique TrimMaxSAT (T) is applied, then the preprocessor also calls SAT solver. 
+
+
+There also are method that print stats on how many clauses and literals have been removed 
+by different techniques and other stats. 
+
+
 # MaxPre 2.2 MaxSAT preprocessor
 
 MaxPre is a preprocessor for MaxSAT and (since version 2.1) multi-objective MaxSAT,
