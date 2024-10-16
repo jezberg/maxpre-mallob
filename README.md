@@ -1,3 +1,8 @@
+# NOTE
+This is a copy of the MaxPRE repository, mean for testing distributed MaxSAT preprocessing. 
+Below is the MaxPRE readme, it has not been updates so communication over the 
+e-mail
+
 # MaxPre 2.2 MaxSAT preprocessor
 
 MaxPre is a preprocessor for MaxSAT and (since version 2.1) multi-objective MaxSAT,
