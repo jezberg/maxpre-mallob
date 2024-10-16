@@ -303,7 +303,7 @@ int main(int argc, char* argv[]){
 			if (iverb>0) parser_if.printTechniqueLog(cout);
 			if (iverb>0) parser_if.printTimeLog(cout);
 			if (iverb>0) parser_if.printInfoLog(cout);
-			cerr << "###############################################" << endl;
+			cerr << "################################################" << endl;
 		}
 
 		if (flags.count("mapfile")) {
