@@ -390,6 +390,9 @@ int parseProofDebugLevel(map<string, string>& flags, int verb, int iverb) {
 	return 0;
 }
 
+bool parseParsingInterface(map<string, string>& flags) {
+	return flags.count("parseI");;
+}
 
 int parseVerb(map<string, string>& flags) {
 	int verb = 0;
