@@ -153,7 +153,7 @@ void Log::printInfo(ostream& out) {
 	out<<"c Original weight range [";
 	for (int i=0; i<(int)initialWeightRange.size(); ++i) { out << (i?", ":"") << initialWeightRange[i];}
 	out << "]\n";
-	out<<"c {Preprocessed weight range [";
+	out<<"c Preprocessed weight range [";
 	for (int i=0; i<(int)weightRange.size(); ++i) { out << (i?", ":"") << weightRange[i];}
 	out << "]\n";
 	out.flush();

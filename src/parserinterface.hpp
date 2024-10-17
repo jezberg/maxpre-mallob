@@ -64,7 +64,8 @@ public:
 	std::vector<int> reconstruct(const std::vector<int>& trueLiterals, bool convertLits = 1); 
 
 
-	void printInstance(std::ostream& output, int outputFormat = 0) {if (pif_ok("printInstance")) pif->printInstance(output, outputFormat);};
+	void printInstance(std::ostream& output, int outputFormat = 0);
+	void printSolution(const std::vector<int>& trueLiterals, std::ostream& output, uint64_t ansWeight, int outputFormat) {if (pif_ok("printSolution")) pif->printSolution(trueLiterals, output, ansWeight, outputFormat);};
 	void printMap(std::ostream& output)  {if (pif_ok("printMap")) pif->printMap(output);};
 	void printTechniqueLog(std::ostream& output)  {if (pif_ok("printTechniqueLog")) pif->printTechniqueLog(output);};
 	void printTimeLog(std::ostream& output)  {if (pif_ok("printTimeLog")) pif->printTimeLog(output);};

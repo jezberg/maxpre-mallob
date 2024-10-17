@@ -88,12 +88,16 @@ namespace maxPreprocessor {
 		vector<int> retLabels;
 		pif->getInstance(retClauses, retWeights, retLabels, addRemovedWeight, false);
 
+		
+
+
 		uint64_t top = pif->getTopWeight();
 
     	assert(retClauses.size() == retWeights.size());
   
 		for (size_t i = 0; i < retClauses.size(); i++) {
 			uint64_t weight = retWeights[i];
+
 			if (weight < top) {
 				//SOFT 
 				assert(retClauses[i].size() == 1);
@@ -101,7 +105,7 @@ namespace maxPreprocessor {
 				ret_objective.push_back(make_pair(weight, (-1) * retClauses[i][0]));
         	}
 			else {
-				for (size_t cl_ind = 0 ; cl_ind < retClauses[i].size(); i++) {
+				for (size_t cl_ind = 0 ; cl_ind < retClauses[i].size(); cl_ind++) {
 					ret_compressed_clauses.push_back(retClauses[i][cl_ind]);
 				}
 				ret_compressed_clauses.push_back(0);
@@ -109,6 +113,59 @@ namespace maxPreprocessor {
 		}
 		return;
 	}
+	/*
+	* Print the preprocessed instance, mainly used for testing the "getInstance method of this class."
+	*/
+	void ParserInterface::printInstance(std::ostream& output, int outputFormat) {
+		if (!pif_ok("printInstance")) return;
+		
+		std::vector<int> clauses;
+		std::vector<std::pair<uint64_t, int>> objective;
+				
+		getInstance(clauses, objective, true);
+
+
+		assert(outputFormat == INPUT_FORMAT_WPMS22);
+
+		if (get_ub() !=  HARDWEIGHT) output << "c UB " << get_ub() << "\n";
+
+		output<<"c objective ";
+		for (unsigned i = 0; i < objective.size(); i++) {
+			int lit = objective[i].second;
+			uint64_t coeff = objective[i].first;
+			output << coeff << "*" << lit;
+			if (i + 1 < objective.size()) {
+				output<<" ";
+			}
+		}
+		
+		output<<"\n";
+		
+		output<<"h  ";
+		for (unsigned i = 0 ; i < clauses.size(); i++) {
+			int lit = clauses[i];
+			output<<lit;
+			if (lit == 0) {
+				output<<"\n";
+				if (i + 1 < clauses.size()) {
+					output<<"h  ";
+				}
+			}
+			else {
+				output << " ";
+			}
+				
+		}
+		
+
+		for (auto term: objective) {
+			int lit = term.second;
+			uint64_t coeff = term.first;
+			output<<coeff<< " " << (-1)*lit << " 0\n";
+		}
+		
+		output.flush();
+	};
 }
 
 	
