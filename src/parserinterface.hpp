@@ -45,6 +45,8 @@ public:
 	 */
 	void preprocess(std::string techniques, int logLevel = 0, double timeLimit = 1e9);
 
+	bool lastCallInterrupted();
+
 	uint64_t get_lb();
 	uint64_t get_ub();
 

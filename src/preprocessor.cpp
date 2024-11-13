@@ -939,7 +939,7 @@ void Preprocessor::preprocess(string techniques, double timeLimit, bool debug, b
 	Timer preTime;
 	preTime.start();
 	log(originalVars, " variables, ", originalClauses, " clauses");
-
+	rLog.interrupted = false;
 	if (plog) {
 		// set up prooflogging
 		plog->begin_proof();

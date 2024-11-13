@@ -150,6 +150,7 @@ public:
 	//
 	void plogLogState();
 
+	bool lastCallInterrupted() { return rLog.interrupted; };
 
 	bool isTautology(const Clause& clause) const;
 

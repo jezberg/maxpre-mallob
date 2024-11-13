@@ -57,6 +57,8 @@ public:
 	// Returns the topweight. This should be the same as given in the constructor.
 	uint64_t getTopWeight();
 
+	bool lastCallInterrupted() { return preprocessor.lastCallInterrupted(); };
+
 
 	/* These functions work only if inprocessing mode is enabled. Use them only
 	 * if you know what you are doing. Correctness of some preprocessing

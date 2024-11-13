@@ -22,6 +22,7 @@ void LogT::print(ostream& out) {
 
 Log::Log() {
 	activeTechnique = none;
+	interrupted = false;
 	tLog.resize(30);
 	tTimer.resize(30);
 	timeLimit = 0;
@@ -257,7 +258,11 @@ bool Log::requestTime(Technique t) {
 	if (tTimer[t].getTime().count() < tTimeLimit[t]) return true;
 	tTimeLimit[t] += toReallocate; // give reallocate time
 	toReallocate = 0;
-	return tTimer[t].getTime().count() < tTimeLimit[t];
+	bool to_return = tTimer[t].getTime().count() < tTimeLimit[t];
+	if (!to_return) {
+		interrupted = true;
+	}
+	return to_return;
 }
 
 double Log::allocatedTimeLeft(Technique t) {
