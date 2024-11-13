@@ -75,7 +75,7 @@ namespace maxPreprocessor {
 	}
 
 	bool ParserInterface::lastCallInterrupted() {
-		if (!pif_ok("last call")) {
+		if (!pif_ok("last_call_interrupted")) {
 			return false;
 		}
 		return pif->lastCallInterrupted();
