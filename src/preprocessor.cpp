@@ -3,8 +3,7 @@
 #include <algorithm>
 #include <cassert>
 #include <set>
-#include <unordered_map>
-#include <unordered_set>
+#include "hash_tables.hpp"
 #include <map>
 #include <set>
 #include <sstream>

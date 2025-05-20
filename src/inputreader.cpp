@@ -76,7 +76,7 @@ int InputReader::readHardClause(istream& input) {
 	if (input.fail()) {
 		return 1;
 	}
-	clauses.push_back(clause);
+	clauses.push_back(std::move(clause));
 	weights.push_back({});
 	return 0;
 }

@@ -1,4 +1,4 @@
-void Preprocessor::tryLSBCE(int lit, unordered_set<int>& deletedClauses, unordered_set<int>& touchedList, vector<pair<int, int> >& blockedClauses) {
+void Preprocessor::tryLSBCE(int lit, hashset<int>& deletedClauses, hashset<int>& touchedList, vector<pair<int, int> >& blockedClauses) {
 	for (int c1i : pi.litClauses[lit]) {
 		if (deletedClauses.count(c1i)) continue;
 		const vector<int>& c1 = pi.clauses[c1i].lit;
@@ -37,8 +37,8 @@ int Preprocessor::tryLS(int lit) {
 	vector<int>& tc = pi.litClauses[litNegation(lit)];
 	if (tc.size()==0) return 0;
 	vector<pair<int, int> > blockedClauses;
-	unordered_set<int> touchedList;
-	unordered_set<int> deletedClauses;
+	hashset<int> touchedList;
+	hashset<int> deletedClauses;
 	for (int t : tc) {
 		deletedClauses.insert(t);
 		for(int l : pi.clauses[t].lit) {

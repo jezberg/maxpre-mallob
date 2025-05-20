@@ -42,8 +42,8 @@ int Preprocessor::tryFLP(vector<int> fLit, int clause) {
 	}
 	vector<pair<int, int> > litRemoved;
 	bool conflict = false;
-	unordered_set<int> satClauses;
-	unordered_set<int> used;
+	hashset<int> satClauses;
+	hashset<int> used;
 	vector<int> binCores; // this doesn't do anything currently...?
 	while (!failQ.empty()) {
 		int lit = failQ.front();

@@ -1,10 +1,13 @@
+#include <fstream>
 #include <vector>
 #include <iostream>
 #include <cassert>
 #include <set>
 #include <map>
+#include <unistd.h>
 
 #include "log.hpp"
+#include "tmpdir.hpp"
 
 using namespace std;
 namespace maxPreprocessor {
@@ -251,6 +254,10 @@ void Log::timePlan(double timeLimit_, string useTechniques) {
 }
 
 bool Log::requestTime(Technique t) {
+	if (asyncInterruptSet) {
+		interrupted = true;
+		return false;
+	}
 	if (timeLimit > infTime/2) return true;
 	assert(activeTechnique == t);
 	if (askHistory.size() == 0 || askHistory.back() != t) newRequest(t);

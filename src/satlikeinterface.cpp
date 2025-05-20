@@ -67,7 +67,7 @@ bool SatlikeInterface::do_search(const maxPreprocessor::ProblemInstance& pi, con
 		satlike.flip(flipvar);
 		satlike.time_stamp[flipvar] = step;
 
-		if (timer.getTime().count()>timeLimit) {
+		if (pi.asyncInterruptSet || timer.getTime().count()>timeLimit) {
 			break;
 		}
 	}

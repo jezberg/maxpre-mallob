@@ -127,7 +127,7 @@ namespace maxPreprocessor {
 	}
 
 	void PreprocessorInterface::getInstance(std::vector<std::vector<int> >& retClauses, std::vector<uint64_t>& retWeights, std::vector<int>& retLabels, bool addRemovedWeight, bool sortLabelsFrequency) {
-		assert(preprocessor.pi.objectives == 1);
+		assert(preprocessor.pi.objectives <= 1);
 
 		preprocessedInstance = preprocessor.getPreprocessedInstance(addRemovedWeight, sortLabelsFrequency);
 		getInstanceClausesAndLabels(retClauses, retLabels);
@@ -187,14 +187,51 @@ namespace maxPreprocessor {
 		}
 	}
 
-	vector<int> PreprocessorInterface::reconstruct(const vector<int>& trueLiterals, bool convertLits) {
+	PreprocessorInterface::PPImage PreprocessorInterface::getImageForIncrementalReconstruction(const PPImage& prevImg) {
+		// Create an incremental trace that *only* features the operations and data
+		// from the most recent preprocessing call.
+		Trace trace;
+		// Copy operation sequence since the last preprocessing
+		size_t nbPrevOperations = prevImg.trace.operations.size();
+		trace.operations = std::vector<int>(
+			preprocessor.trace.operations.begin()+nbPrevOperations,
+			preprocessor.trace.operations.end());
+		// Copy data sequence since the last preprocessing
+		size_t nbPrevData = prevImg.trace.data.size();
+		trace.data = std::vector<std::vector<int>>(
+			preprocessor.trace.data.begin()+nbPrevData,
+			preprocessor.trace.data.end());
+		// We keep "removedWeight" completely rather than incrementally
+		trace.removedWeight = preprocessor.trace.removedWeight;
+		// Return the image with all the data needed to reconstruct a solution
+		return {variables, solverVarToPPVar, std::move(trace)};
+	}
+
+	vector<int> PreprocessorInterface::reconstruct(const vector<int>& trueLiterals, bool convertLits, PPImage* image, int leadingZeroes) {
+		// defaults if no image is provided
+		int nbVars = variables;
+		Trace* trace = &preprocessor.trace;
+		std::vector<int>* solverToPP = &solverVarToPPVar;
+		// if an image is provided, apply its relevant data
+		if (image) {
+			nbVars = image->variables;
+			trace = &image->trace;
+			solverToPP = &image->solverVarToPPVar;
+		}
+		// Convert the literals
 		vector<int> ppTrueLiterals;
 		for (int lit : trueLiterals) {
-			if (convertLits) lit = litToPP(lit);
+			if (lit == 0) continue;
+			if (convertLits) {
+				if ((int)solverToPP->size() <= abs(lit)-1) lit = 0;
+				else if (lit > 0) lit = solverToPP->at(abs(lit)-1);
+				else lit = -solverToPP->at(abs(lit)-1);
+			}
 			if (lit == 0) continue;
 			ppTrueLiterals.push_back(lit);
 		}
-		return preprocessor.trace.getSolution(ppTrueLiterals, 0, variables, originalVariables).F;
+		// Reconstruct the solution
+		return trace->getSolution(ppTrueLiterals, 0, nbVars, originalVariables, leadingZeroes).F;
 	}
 
 	vector<int> PreprocessorInterface::getFixed() {

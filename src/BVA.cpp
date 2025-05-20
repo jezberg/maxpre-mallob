@@ -1,4 +1,4 @@
-void Preprocessor::addBVAHash(vector<int>& lits, unordered_map<uint64_t, int>& hashes) {
+void Preprocessor::addBVAHash(vector<int>& lits, hashmap<uint64_t, int>& hashes) {
 	if (lits.size() <= 1) return;
 	if (sfH.size() < lits.size() + 1) sfH.resize(lits.size() + 1);
 	if (tMul.size() < lits.size() + 1) tMul.resize(lits.size() + 1);
@@ -53,7 +53,7 @@ int Preprocessor::canBVA(int c, int d, int lit) {
 	return hd;
 }
 
-int Preprocessor::tryBVA(int lit, unordered_map<uint64_t, int>& hashes) {
+int Preprocessor::tryBVA(int lit, hashmap<uint64_t, int>& hashes) {
 	const bool noLabels = false;
 	if (noLabels && pi.isLabelVar(litVariable(lit))) return 0;
 	vector<int> mLit = {lit};
@@ -321,7 +321,7 @@ int Preprocessor::doBVA() {
 
 void Preprocessor::doBVA2() {
 	rLog.startTechnique(Log::Technique::BVA);
-	unordered_map<uint64_t, int> hashes;
+	hashmap<uint64_t, int> hashes;
 	for (int lit = 0; lit < 2*pi.vars; lit++) {
 		if (tryBVA(lit, hashes)) {
 			if (pi.litClauses[lit].size() < 2) continue;
