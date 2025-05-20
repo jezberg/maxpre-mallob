@@ -3,7 +3,7 @@
 // sat solver up might have some overhead
 
 int Preprocessor::tryAM1(vector<int>& bvars, int objective, bool weight_aware, bool stratification, bool greedy_cost) {
-	unordered_map<int, set<int> > conns;
+	hashmap<int, set<int> > conns;
 
 	if (greedy_cost) {
 		stats["AM1_litFlips"]+=0;

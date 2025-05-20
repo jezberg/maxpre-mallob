@@ -118,8 +118,8 @@ pair<vector<int>, int> Preprocessor::searchXor(int var) const {
 	if (pi.litClauses[posLit(var)].size() < 2 || pi.litClauses[negLit(var)].size() < 2) return {vector<int>(), 0};
 	int maxXorVar = 2;
 	while ((1 << maxXorVar) <= (int)min(pi.litClauses[posLit(var)].size(), pi.litClauses[negLit(var)].size())) maxXorVar++;
-	vector<unordered_map<int, int> > pCnt(maxXorVar + 2);
-	vector<unordered_map<int, int> > nCnt(maxXorVar + 2);
+	vector<hashmap<int, int> > pCnt(maxXorVar + 2);
+	vector<hashmap<int, int> > nCnt(maxXorVar + 2);
 
 	for (int c : pi.litClauses[posLit(var)]) {
 		if ((int)pi.clauses[c].lit.size() > maxXorVar + 1) continue;

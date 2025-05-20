@@ -3,7 +3,7 @@
 
 #include <iostream>
 #include <ostream>
-#include <unordered_map>
+#include "hash_tables.hpp"
 #include <map>
 #include <vector>
 #include "global.hpp"
@@ -136,7 +136,7 @@ private:
   std::string get_nbvar_substitution(int cid, int lit);
   void reset_clause_computed_strs(int cid);
 
-  std::unordered_map<int, uint64_t> soft_clause_weights;
+  hashmap<int, uint64_t> soft_clause_weights;
   uint64_t objective_constant;
 
 public:

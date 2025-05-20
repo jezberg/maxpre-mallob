@@ -4,33 +4,41 @@
 #include <cstdint>
 #include <iostream>
 #include <fstream>
+#include <memory>
+#include <mutex>
 
 #include "preprocessorinterface.hpp"
 
 namespace maxPreprocessor {
 class ParserInterface {
 private:
-	maxPreprocessor::PreprocessorInterface* pif;
+	std::unique_ptr<maxPreprocessor::PreprocessorInterface> pif;
 public:
 	/*
 	* the constructor simply initializez the reader and the preprocessor interface. 
 	*/
 	ParserInterface();
-
-	~ParserInterface() {
-    	if (pif != NULL)
-      		delete pif;
-  	}
+	~ParserInterface() {}
 
 private: 
 	// Check if the interface has been initialized. 
 	bool pif_ok(string error_msg);
 	bool has_preprocessed;
+
+	// Guards reconstruction_images to allow solution reconstruction concurrently
+	// to preprocessing.
+	std::mutex mtx_reconstruction;
+	std::vector<PreprocessorInterface::PPImage> reconstruction_images;
+
+	std::vector<std::pair<size_t, std::vector<int>>> originalSoftClauses;
+
 public:
 	/*
 	* read the file into the input reader,
 	*/
 	int read_file_init_interface(istream& input);
+
+	void setTmpDirectory(const std::string& tmpDirectory);
 
 	// Returns the current instance, give the data structures as parameters. 
 	// Specifically, ret_objective will contain pairs of uint_64 and int, representing the coefficient and the literal. 
@@ -38,12 +46,19 @@ public:
 	// If "addRemovedWeight = 1" the returned objective will contain a fresh variable x with a coefficient exactly equal 
 	// to the lower bound proved by the preprocessor, and the clauses will contain a unit clause (not x). Essentially, x is then a trivial core
 	// If addRemovedWeight = 0, any cost computed by the objective should be increased by get_lb() in order to get the cost of the original instance. 
-	void getInstance(std::vector<int>& ret_compressed_clauses, std::vector<std::pair<uint64_t, int>> & ret_objective, bool addRemovedWeight= 1);
+	void getInstance(std::vector<int>& ret_compressed_clauses, std::vector<std::pair<uint64_t, int>> & ret_objective, int& ret_nbVars, int& ret_nbClauses, bool addRemovedWeight= 1);
 	
 	/* Preprocesses the current maxsat instance with the given techniques
 	 * string, loglevel and timelimit.
 	 */
 	void preprocess(std::string techniques, int logLevel = 0, double timeLimit = 1e9);
+
+	/* Permanently interrupts preprocessing for this instance. Can be called asynchronously to an ongoing call.
+	 * Preprocessing will then be interrupted at the earliest possible point.
+	 */
+	void interruptAsynchronously() {
+		pif->interruptAsynchronously();
+	}
 
 	bool lastCallInterrupted();
 
@@ -63,7 +78,7 @@ public:
 	/* Returns the assignment of the original variables given the assignment of
 	 * variable in the solution of the preprocessed nistance
 	 */
-	std::vector<int> reconstruct(const std::vector<int>& trueLiterals, bool convertLits = 1); 
+	std::vector<int> reconstruct(const std::vector<int>& trueLiterals, size_t* outCostOrNullptr, int preprocessingLayer, bool convertLits = true, int leadingZeroes = 0);
 
 
 	void printInstance(std::ostream& output, int outputFormat = 0);

@@ -5,8 +5,7 @@
 #include <queue>
 #include <set>
 #include <random>
-#include <unordered_map>
-#include <unordered_set>
+#include "hash_tables.hpp"
 
 
 #include "global.hpp"
@@ -152,6 +151,11 @@ public:
 
 	bool lastCallInterrupted() { return rLog.interrupted; };
 
+	void interruptAsynchronously() {
+		rLog.interruptAsynchronously();
+		pi.interruptAsynchronously();
+	}
+
 	bool isTautology(const Clause& clause) const;
 
 	// Returns number of clauses removed
@@ -206,7 +210,7 @@ public:
 
 	std::vector<uint64_t> getBVEHash(const std::vector<int>& cs, int var, int sw) const;
 
-	std::unordered_map<std::string, double> stats;
+	hashmap<std::string, double> stats;
 
 	int doBVE();
 	void doBVE2();
@@ -263,10 +267,10 @@ public:
 
 	std::vector<uint64_t> sfH;
 	std::vector<uint64_t> tMul;
-	std::unordered_map<uint64_t, int> BVAHashTable;
-	void addBVAHash(std::vector<int>& lits, std::unordered_map<uint64_t, int>& hashes);
+	hashmap<uint64_t, int> BVAHashTable;
+	void addBVAHash(std::vector<int>& lits, hashmap<uint64_t, int>& hashes);
 	int canBVA(int c, int d, int lit);
-	int tryBVA(int lit, std::unordered_map<uint64_t, int>& hashes);
+	int tryBVA(int lit, hashmap<uint64_t, int>& hashes);
 	int doBVA();
 	void doBVA2();
 
@@ -283,14 +287,14 @@ public:
 	void findLabeledFormula();
 
 	int tryLS(int lit);
-	void tryLSBCE(int lit, std::unordered_set<int>& deletedClauses, std::unordered_set<int>& touchedList, std::vector<std::pair<int, int> >& blockedClauses);
+	void tryLSBCE(int lit, hashset<int>& deletedClauses, hashset<int>& touchedList, std::vector<std::pair<int, int> >& blockedClauses);
 	int doLS();
 
 	int tryAM1(vector<int>& vars, int objective, bool weight_aware, bool stratification, bool greedy_cost);
 
 	int doAM1(bool weight_aware, bool stratification, bool greedy_cost);
 
-	unordered_set<int> canSatLits;
+	hashset<int> canSatLits;
 	int tryTMS(vector<int>& vars, vector<pair<int, int> >& variablesToSet, vector<pair<int, int> >& proofClausesToDelete); // the second element of variablesToSet and the vector proofClausesToDelete are for prooflogging purposes
 	int TMSMaxVars; // tmp TODO: test and remove
 	int doBBTMS(int maxVars);

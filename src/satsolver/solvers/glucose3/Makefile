@@ -1,5 +1,5 @@
 CC = g++
-CFLAGS = -std=c++11 -O2 -Wall -Wextra -Wshadow -g -Wfatal-errors -I.
+CFLAGS = -std=c++17 -O3 -Wall -Wextra -Wshadow -g -Wfatal-errors -I. -DNDEBUG
 OBJFILES = utils/System.o
 LIBFILES =
 

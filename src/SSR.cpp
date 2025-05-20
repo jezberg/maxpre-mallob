@@ -55,6 +55,7 @@ int Preprocessor::trySSRAmsLex(int var) {
 	pair<vector<int>, vector<int> > cand = amsLex.amsLexSSR(pi.litClauses[posLit(var)], pi.litClauses[negLit(var)], var);
 	int removed = 0;
 	for (int c1 : cand.F) {
+		if (rLog.isInterruptedAsynchronously()) return removed;
 		if (pi.isClauseRemoved(c1)) continue;
 		for (int c2 : pi.litClauses[negLit(var)]) {
 			if (pi.isClauseRemoved(c2)) continue;
@@ -66,6 +67,7 @@ int Preprocessor::trySSRAmsLex(int var) {
 		}
 	}
 	for (int c1 : pi.litClauses[posLit(var)]) {
+		if (rLog.isInterruptedAsynchronously()) return removed;
 		if (pi.isClauseRemoved(c1)) continue;
 		for (int c2 : cand.S) {
 			if (pi.isClauseRemoved(c2)) continue;
@@ -125,6 +127,7 @@ int Preprocessor::trySSRHash(int var) {
 				if (litVariable(l) != var) h |= ((int64_t)1 << (int64_t)(l%k));
 			}
 			for (int64_t sub = 0; (sub = (sub - h) & h);) {
+				if (rLog.isInterruptedAsynchronously()) return removed;
 				for (auto c2 : hn[sub]) {
 					if ((((pi.clauses[c1].hash ^ bmP) | c2.S) != c2.S) && (((c2.S ^ bmN) | pi.clauses[c1].hash) != pi.clauses[c1].hash)) continue;
 					if ((c2.S & bmN) == 0) continue;
@@ -150,6 +153,7 @@ int Preprocessor::trySSRHash(int var) {
 				if (litVariable(l) != var) h |= ((int64_t)1 << (int64_t)(l%k));
 			}
 			for (int64_t sub = 0; (sub = (sub - h) & h);) {
+				if (rLog.isInterruptedAsynchronously()) return removed;
 				for (auto c1 : hp[sub]) {
 					if ((((c1.S ^ bmP) | pi.clauses[c2].hash) != pi.clauses[c2].hash) && (((pi.clauses[c2].hash ^ bmN) | c1.S) != c1.S)) continue;
 					if ((c1.S & bmP) == 0) continue;
@@ -180,6 +184,7 @@ int Preprocessor::trySSR2(int var) {
 		f = false;
 		for (int c1 : pi.litClauses[posLit(var)]) {
 			for (int c2 : pi.litClauses[negLit(var)]) {
+				if (rLog.isInterruptedAsynchronously()) return removed;
 				if ((((pi.clauses[c1].hash ^ bmP) | pi.clauses[c2].hash) != pi.clauses[c2].hash) && (((pi.clauses[c2].hash ^ bmN) | pi.clauses[c1].hash) != pi.clauses[c1].hash)) continue;
 
 				if (SSRC(c1, c2, var)) {

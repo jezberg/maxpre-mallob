@@ -21,7 +21,7 @@ public:
 	void labelEliminate(int lbl1, int lbl2, int tautli);
 	void removeWeight(uint64_t weight, int objective);
 	void removeWeight(const std::vector<uint64_t>& weight);
-	std::pair<std::vector<int>, uint64_t> getSolution(const std::vector<int>& trueLits, uint64_t weight, int vars, int originalVars);
+	std::pair<std::vector<int>, uint64_t> getSolution(const std::vector<int>& trueLits, uint64_t weight, int vars, int originalVars, int leadingZeroes = 0);
 	std::vector<int> getFixed();
 	void printSolution(std::ostream& output, const std::vector<int>& trueLits, uint64_t weight, int vars, int originalVars, int outputFormat);
 	void setNbObjectives(int n);
